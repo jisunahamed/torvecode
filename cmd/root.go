@@ -23,8 +23,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "torve",
-	Short: "Terminal-based AI assistant for software development",
+	Use:          "torve",
+	SilenceUsage: true,
+	Short:        "Terminal-based AI assistant for software development",
 	Long: `Torvecode is Torve AI's lightweight coding agent for the terminal.
 It provides an interactive chat interface with AI capabilities, code analysis, and LSP integration
 to assist developers in writing, debugging, and understanding code directly from the terminal.`,
@@ -58,9 +59,16 @@ to assist developers in writing, debugging, and understanding code directly from
 			return nil
 		}
 
+		prompt, _ := cmd.Flags().GetString("prompt")
 		credential, err := auth.Resolve()
 		if err != nil {
-			return err
+			if prompt != "" {
+				return err
+			}
+			credential, err = tui.RunOnboarding(cmd.Context())
+			if err != nil {
+				return err
+			}
 		}
 		catalog, err := auth.FetchModels(cmd.Context(), credential)
 		if err != nil {
@@ -76,7 +84,6 @@ to assist developers in writing, debugging, and understanding code directly from
 		// Load the config
 		debug, _ := cmd.Flags().GetBool("debug")
 		cwd, _ := cmd.Flags().GetString("cwd")
-		prompt, _ := cmd.Flags().GetString("prompt")
 		outputFormat, _ := cmd.Flags().GetString("output-format")
 		quiet, _ := cmd.Flags().GetBool("quiet")
 		allowTools, _ := cmd.Flags().GetBool("allow-tools")

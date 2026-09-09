@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -11,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jisunahamed/torvecode/internal/app"
+	"github.com/jisunahamed/torvecode/internal/config"
 	"github.com/jisunahamed/torvecode/internal/message"
 	"github.com/jisunahamed/torvecode/internal/pubsub"
 	"github.com/jisunahamed/torvecode/internal/session"
@@ -25,19 +30,21 @@ type cacheItem struct {
 	content []uiMessage
 }
 type messagesCmp struct {
-	app           *app.App
-	width, height int
-	viewport      viewport.Model
-	session       session.Session
-	messages      []message.Message
-	uiMessages    []uiMessage
-	currentMsgID  string
-	cachedContent map[string]cacheItem
-	spinner       spinner.Model
-	rendering     bool
-	attachments   viewport.Model
+	app            *app.App
+	width, height  int
+	viewport       viewport.Model
+	session        session.Session
+	messages       []message.Message
+	uiMessages     []uiMessage
+	currentMsgID   string
+	cachedContent  map[string]cacheItem
+	spinner        spinner.Model
+	rendering      bool
+	attachments    viewport.Model
+	recentSessions []session.Session
 }
 type renderFinishedMsg struct{}
+type recentSessionsMsg []session.Session
 
 type MessageKeys struct {
 	PageDown     key.Binding
@@ -66,12 +73,21 @@ var messageKeys = MessageKeys{
 }
 
 func (m *messagesCmp) Init() tea.Cmd {
-	return tea.Batch(m.viewport.Init(), m.spinner.Tick)
+	return tea.Batch(m.viewport.Init(), m.spinner.Tick, func() tea.Msg {
+		sessions, err := m.app.Sessions.List(context.Background())
+		if err != nil {
+			return recentSessionsMsg(nil)
+		}
+		return recentSessionsMsg(sessions)
+	})
 }
 
 func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
+	case recentSessionsMsg:
+		m.recentSessions = []session.Session(msg)
+		return m, nil
 	case dialog.ThemeChangedMsg:
 		m.rerender()
 		return m, nil
@@ -401,16 +417,75 @@ func (m *messagesCmp) help() string {
 }
 
 func (m *messagesCmp) initialScreen() string {
-	baseStyle := styles.BaseStyle()
+	t := theme.CurrentTheme()
+	base := styles.BaseStyle()
+	contentWidth := min(72, max(34, m.width-8))
 
-	return baseStyle.Width(m.width).Render(
-		lipgloss.JoinVertical(
-			lipgloss.Top,
-			header(m.width),
-			"",
-			lspsConfigured(m.width),
-		),
+	wordmark := lipgloss.JoinHorizontal(lipgloss.Bottom,
+		base.Bold(true).Foreground(t.Text()).Render("TORVE"),
+		base.Bold(true).Foreground(t.Primary()).Render("CODE"),
 	)
+	subtitle := base.Foreground(t.TextMuted()).Render("AI coding workspace for this repository")
+
+	cwd, _ := os.Getwd()
+	folder := filepath.Base(cwd)
+	if folder == "." || folder == "" {
+		folder = cwd
+	}
+	modelName := string(config.Get().Agents[config.AgentCoder].Model)
+	workspace := lipgloss.NewStyle().
+		Width(contentWidth).
+		Border(lipgloss.NormalBorder(), false, false, false, true).
+		BorderForeground(t.BorderFocused()).
+		Padding(1, 2).
+		Render(lipgloss.JoinVertical(lipgloss.Left,
+			base.Bold(true).Foreground(t.Text()).Render("Ask Torvecode anything"),
+			base.Foreground(t.TextMuted()).Render("Type below to review, explain, edit, or test your code."),
+			"",
+			base.Foreground(t.Primary()).Render("⌁ "+folder)+
+				base.Foreground(t.TextMuted()).Render("   model "+modelName),
+		))
+
+	recent := ""
+	visible := 0
+	rows := make([]string, 0, 3)
+	for _, item := range m.recentSessions {
+		if item.ParentSessionID != "" || strings.TrimSpace(item.Title) == "" {
+			continue
+		}
+		title := item.Title
+		if len([]rune(title)) > 42 {
+			title = string([]rune(title)[:41]) + "…"
+		}
+		when := time.Unix(item.UpdatedAt, 0).Format("Jan 02  15:04")
+		rows = append(rows,
+			base.Foreground(t.TextMuted()).Width(14).Render(when)+
+				base.Foreground(t.Text()).Render(title),
+		)
+		visible++
+		if visible == 3 {
+			break
+		}
+	}
+	if len(rows) > 0 {
+		recent = lipgloss.JoinVertical(lipgloss.Left,
+			base.Foreground(t.Primary()).Bold(true).Render("Recent sessions"),
+			lipgloss.JoinVertical(lipgloss.Left, rows...),
+			base.Foreground(t.TextMuted()).Render("ctrl+s open all sessions   ctrl+n new session"),
+		)
+	} else {
+		recent = base.Foreground(t.TextMuted()).Render("Your sessions will stay here in this project.  ctrl+s opens history")
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center,
+		wordmark,
+		subtitle,
+		"",
+		workspace,
+		"",
+		lipgloss.NewStyle().Width(contentWidth).Render(recent),
+	)
+	return lipgloss.Place(m.width, max(1, m.height-1), lipgloss.Center, lipgloss.Center, content)
 }
 
 func (m *messagesCmp) rerender() {
