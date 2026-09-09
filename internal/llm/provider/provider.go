@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/message"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/llm/tools"
+	"github.com/jisunahamed/torvecode/internal/message"
 )
 
 type EventType string
@@ -89,6 +90,20 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		o(&clientOptions)
 	}
 	switch providerName {
+	case models.ProviderTorve:
+		baseURL := "https://api.torveai.com/v1"
+		if endpoint := os.Getenv("TORVE_API_URL"); endpoint != "" {
+			baseURL = strings.TrimRight(endpoint, "/") + "/v1"
+		}
+		clientOptions.openaiOptions = append(clientOptions.openaiOptions, WithOpenAIBaseURL(baseURL))
+		return &baseProvider[OpenAIClient]{options: clientOptions, client: newOpenAIClient(clientOptions)}, nil
+	case models.ProviderTorveAnthropic:
+		baseURL := "https://api.torveai.com"
+		if endpoint := os.Getenv("TORVE_API_URL"); endpoint != "" {
+			baseURL = strings.TrimRight(endpoint, "/")
+		}
+		clientOptions.anthropicOptions = append(clientOptions.anthropicOptions, WithAnthropicBaseURL(baseURL))
+		return &baseProvider[AnthropicClient]{options: clientOptions, client: newAnthropicClient(clientOptions)}, nil
 	case models.ProviderCopilot:
 		return &baseProvider[CopilotClient]{
 			options: clientOptions,
@@ -136,8 +151,8 @@ func NewProvider(providerName models.ModelProvider, opts ...ProviderClientOption
 		clientOptions.openaiOptions = append(clientOptions.openaiOptions,
 			WithOpenAIBaseURL("https://openrouter.ai/api/v1"),
 			WithOpenAIExtraHeaders(map[string]string{
-				"HTTP-Referer": "opencode.ai",
-				"X-Title":      "OpenCode",
+				"HTTP-Referer": "https://torveai.com",
+				"X-Title":      "Torvecode",
 			}),
 		)
 		return &baseProvider[OpenAIClient]{

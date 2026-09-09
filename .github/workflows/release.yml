@@ -1,40 +1,29 @@
 name: release
-
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - "*"
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
-
+    tags: ['v*']
 permissions:
   contents: write
-  packages: write
-
+  id-token: write
 jobs:
-  goreleaser:
+  test:
+    strategy:
+      matrix: { os: [ubuntu-latest, macos-latest, windows-latest] }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.24.x', cache: true }
+      - run: go test ./...
+      - run: go build -o torve-smoke ./cmd/torve
+  release:
+    needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - run: git fetch --force --tags
-
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with:
-          go-version: ">=1.23.2"
-          cache: true
-          cache-dependency-path: go.sum
-
-      - run: go mod download
-
+        with: { go-version: '1.24.x', cache: true }
       - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN }}
-          AUR_KEY: ${{ secrets.AUR_KEY }}
+        with: { distribution: goreleaser, version: latest, args: release --clean }
+        env: { GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }

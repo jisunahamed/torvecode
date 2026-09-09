@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/diff"
-	"github.com/opencode-ai/opencode/internal/history"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/permission"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/diff"
+	"github.com/jisunahamed/torvecode/internal/history"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/lsp"
+	"github.com/jisunahamed/torvecode/internal/permission"
 )
 
 type WriteParams struct {

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/version"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/tools"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/permission"
+	"github.com/jisunahamed/torvecode/internal/version"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -50,7 +50,7 @@ func runTool(ctx context.Context, c MCPClient, toolName string, input string) (t
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = mcp.Implementation{
-		Name:    "OpenCode",
+		Name:    "Torvecode",
 		Version: version.Version,
 	}
 
@@ -144,7 +144,7 @@ func getTools(ctx context.Context, name string, m config.MCPServer, permissions 
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = mcp.Implementation{
-		Name:    "OpenCode",
+		Name:    "Torvecode",
 		Version: version.Version,
 	}
 

@@ -5,12 +5,12 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	chAnsi "github.com/charmbracelet/x/ansi"
+	"github.com/jisunahamed/torvecode/internal/tui/styles"
+	"github.com/jisunahamed/torvecode/internal/tui/theme"
+	"github.com/jisunahamed/torvecode/internal/tui/util"
 	"github.com/muesli/ansi"
 	"github.com/muesli/reflow/truncate"
 	"github.com/muesli/termenv"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
 )
 
 // Most of this code is borrowed from

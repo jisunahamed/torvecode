@@ -8,14 +8,14 @@ import (
 	"io"
 	"time"
 
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/llm/tools"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/message"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/shared"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
 )
 
 type openaiOptions struct {

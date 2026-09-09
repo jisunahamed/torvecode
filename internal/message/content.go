@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
 )
 
 type MessageRole string
@@ -73,7 +73,7 @@ type BinaryContent struct {
 
 func (bc BinaryContent) String(provider models.ModelProvider) string {
 	base64Encoded := base64.StdEncoding.EncodeToString(bc.Data)
-	if provider == models.ProviderOpenAI {
+	if provider == models.ProviderOpenAI || provider == models.ProviderTorve {
 		return "data:" + bc.MIMEType + ";base64," + base64Encoded
 	}
 	return base64Encoded

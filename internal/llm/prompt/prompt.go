@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/logging"
 )
 
 func GetAgentPrompt(agentName config.AgentName, provider models.ModelProvider) string {
@@ -58,71 +58,32 @@ func getContextFromPaths() string {
 }
 
 func processContextPaths(workDir string, paths []string) string {
-	var (
-		wg       sync.WaitGroup
-		resultCh = make(chan string)
-	)
-
-	// Track processed files to avoid duplicates
 	processedFiles := make(map[string]bool)
-	var processedMutex sync.Mutex
-
-	for _, path := range paths {
-		wg.Add(1)
-		go func(p string) {
-			defer wg.Done()
-
-			if strings.HasSuffix(p, "/") {
-				filepath.WalkDir(filepath.Join(workDir, p), func(path string, d os.DirEntry, err error) error {
-					if err != nil {
-						return err
-					}
-					if !d.IsDir() {
-						// Check if we've already processed this file (case-insensitive)
-						processedMutex.Lock()
-						lowerPath := strings.ToLower(path)
-						if !processedFiles[lowerPath] {
-							processedFiles[lowerPath] = true
-							processedMutex.Unlock()
-
-							if result := processFile(path); result != "" {
-								resultCh <- result
-							}
-						} else {
-							processedMutex.Unlock()
-						}
-					}
-					return nil
-				})
-			} else {
-				fullPath := filepath.Join(workDir, p)
-
-				// Check if we've already processed this file (case-insensitive)
-				processedMutex.Lock()
-				lowerPath := strings.ToLower(fullPath)
-				if !processedFiles[lowerPath] {
-					processedFiles[lowerPath] = true
-					processedMutex.Unlock()
-
-					result := processFile(fullPath)
-					if result != "" {
-						resultCh <- result
-					}
-				} else {
-					processedMutex.Unlock()
-				}
-			}
-		}(path)
-	}
-
-	go func() {
-		wg.Wait()
-		close(resultCh)
-	}()
-
 	results := make([]string, 0)
-	for result := range resultCh {
-		results = append(results, result)
+	appendFile := func(path string) {
+		key := strings.ToLower(filepath.Clean(path))
+		if processedFiles[key] {
+			return
+		}
+		processedFiles[key] = true
+		if result := processFile(path); result != "" {
+			results = append(results, result)
+		}
+	}
+	for _, path := range paths {
+		if strings.HasSuffix(path, "/") || strings.HasSuffix(path, `\`) {
+			_ = filepath.WalkDir(filepath.Join(workDir, path), func(path string, entry os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if !entry.IsDir() {
+					appendFile(path)
+				}
+				return nil
+			})
+			continue
+		}
+		appendFile(filepath.Join(workDir, path))
 	}
 
 	return strings.Join(results, "\n")

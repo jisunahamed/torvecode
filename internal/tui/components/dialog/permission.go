@@ -8,13 +8,13 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/opencode-ai/opencode/internal/diff"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/tui/layout"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
-	"github.com/opencode-ai/opencode/internal/tui/util"
+	"github.com/jisunahamed/torvecode/internal/diff"
+	"github.com/jisunahamed/torvecode/internal/llm/tools"
+	"github.com/jisunahamed/torvecode/internal/permission"
+	"github.com/jisunahamed/torvecode/internal/tui/layout"
+	"github.com/jisunahamed/torvecode/internal/tui/styles"
+	"github.com/jisunahamed/torvecode/internal/tui/theme"
+	"github.com/jisunahamed/torvecode/internal/tui/util"
 )
 
 type PermissionAction string

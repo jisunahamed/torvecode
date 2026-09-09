@@ -8,16 +8,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/llm/prompt"
-	"github.com/opencode-ai/opencode/internal/llm/provider"
-	"github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/pubsub"
-	"github.com/opencode-ai/opencode/internal/session"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/llm/prompt"
+	"github.com/jisunahamed/torvecode/internal/llm/provider"
+	"github.com/jisunahamed/torvecode/internal/llm/tools"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/message"
+	"github.com/jisunahamed/torvecode/internal/permission"
+	"github.com/jisunahamed/torvecode/internal/pubsub"
+	"github.com/jisunahamed/torvecode/internal/session"
 )
 
 // Common errors
@@ -731,14 +731,14 @@ func createAgentProvider(agentName config.AgentName) (provider.Provider, error) 
 		provider.WithSystemMessage(prompt.GetAgentPrompt(agentName, model.Provider)),
 		provider.WithMaxTokens(maxTokens),
 	}
-	if model.Provider == models.ProviderOpenAI || model.Provider == models.ProviderLocal && model.CanReason {
+	if (model.Provider == models.ProviderOpenAI || model.Provider == models.ProviderTorve || model.Provider == models.ProviderLocal) && model.CanReason {
 		opts = append(
 			opts,
 			provider.WithOpenAIOptions(
 				provider.WithReasoningEffort(agentConfig.ReasoningEffort),
 			),
 		)
-	} else if model.Provider == models.ProviderAnthropic && model.CanReason && agentName == config.AgentCoder {
+	} else if (model.Provider == models.ProviderAnthropic || model.Provider == models.ProviderTorveAnthropic) && model.CanReason && agentName == config.AgentCoder {
 		opts = append(
 			opts,
 			provider.WithAnthropicOptions(

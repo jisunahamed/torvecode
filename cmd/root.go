@@ -8,43 +8,44 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/jisunahamed/torvecode/internal/app"
+	"github.com/jisunahamed/torvecode/internal/auth"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/db"
+	"github.com/jisunahamed/torvecode/internal/format"
+	"github.com/jisunahamed/torvecode/internal/llm/agent"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/pubsub"
+	"github.com/jisunahamed/torvecode/internal/tui"
+	"github.com/jisunahamed/torvecode/internal/version"
 	zone "github.com/lrstanley/bubblezone"
-	"github.com/opencode-ai/opencode/internal/app"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/db"
-	"github.com/opencode-ai/opencode/internal/format"
-	"github.com/opencode-ai/opencode/internal/llm/agent"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/pubsub"
-	"github.com/opencode-ai/opencode/internal/tui"
-	"github.com/opencode-ai/opencode/internal/version"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "opencode",
+	Use:   "torve",
 	Short: "Terminal-based AI assistant for software development",
-	Long: `OpenCode is a powerful terminal-based AI assistant that helps with software development tasks.
+	Long: `Torvecode is Torve AI's lightweight coding agent for the terminal.
 It provides an interactive chat interface with AI capabilities, code analysis, and LSP integration
 to assist developers in writing, debugging, and understanding code directly from the terminal.`,
 	Example: `
   # Run in interactive mode
-  opencode
+  torve
 
   # Run with debug logging
-  opencode -d
+  torve -d
 
   # Run with debug logging in a specific directory
-  opencode -d -c /path/to/project
+  torve -d -c /path/to/project
 
   # Print version
-  opencode -v
+  torve -v
 
   # Run a single non-interactive prompt
-  opencode -p "Explain the use of context in Go"
+  torve -p "Explain the use of context in Go"
 
   # Run a single non-interactive prompt with JSON output format
-  opencode -p "Explain the use of context in Go" -f json
+  torve -p "Explain the use of context in Go" -f json
   `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// If the help flag is set, show the help message
@@ -57,12 +58,28 @@ to assist developers in writing, debugging, and understanding code directly from
 			return nil
 		}
 
+		credential, err := auth.Resolve()
+		if err != nil {
+			return err
+		}
+		catalog, err := auth.FetchModels(cmd.Context(), credential)
+		if err != nil {
+			return fmt.Errorf("authenticate Torve AI: %w", err)
+		}
+		if _, err := auth.RegisterModels(catalog); err != nil {
+			return err
+		}
+		if err := os.Setenv("TORVE_API_KEY", credential.AccessToken); err != nil {
+			return err
+		}
+
 		// Load the config
 		debug, _ := cmd.Flags().GetBool("debug")
 		cwd, _ := cmd.Flags().GetString("cwd")
 		prompt, _ := cmd.Flags().GetString("prompt")
 		outputFormat, _ := cmd.Flags().GetString("output-format")
 		quiet, _ := cmd.Flags().GetBool("quiet")
+		allowTools, _ := cmd.Flags().GetBool("allow-tools")
 
 		// Validate format option
 		if !format.IsValid(outputFormat) {
@@ -82,7 +99,7 @@ to assist developers in writing, debugging, and understanding code directly from
 			}
 			cwd = c
 		}
-		_, err := config.Load(cwd, debug)
+		_, err = config.Load(cwd, debug)
 		if err != nil {
 			return err
 		}
@@ -111,7 +128,7 @@ to assist developers in writing, debugging, and understanding code directly from
 		// Non-interactive mode
 		if prompt != "" {
 			// Run non-interactive flow using the App method
-			return app.RunNonInteractive(ctx, prompt, outputFormat, quiet)
+			return app.RunNonInteractive(ctx, prompt, outputFormat, quiet, allowTools)
 		}
 
 		// Interactive mode
@@ -301,6 +318,7 @@ func init() {
 
 	// Add quiet flag to hide spinner in non-interactive mode
 	rootCmd.Flags().BoolP("quiet", "q", false, "Hide spinner in non-interactive mode")
+	rootCmd.Flags().Bool("allow-tools", false, "Allow file and shell tools in non-interactive mode")
 
 	// Register custom validation for the format flag
 	rootCmd.RegisterFlagCompletionFunc("output-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

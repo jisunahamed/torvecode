@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/opencode-ai/opencode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestGetContextFromPaths(t *testing.T) {
 	createTestFiles(t, tmpDir, testFiles)
 
 	context := getContextFromPaths()
-	expectedContext := fmt.Sprintf("# From:%s/file.txt\nfile.txt: test content\n# From:%s/directory/file_a.txt\ndirectory/file_a.txt: test content\n# From:%s/directory/file_b.txt\ndirectory/file_b.txt: test content\n# From:%s/directory/file_c.txt\ndirectory/file_c.txt: test content", tmpDir, tmpDir, tmpDir, tmpDir)
+	expectedContext := fmt.Sprintf("# From:%s\nfile.txt: test content\n# From:%s\ndirectory/file_a.txt: test content\n# From:%s\ndirectory/file_b.txt: test content\n# From:%s\ndirectory/file_c.txt: test content", filepath.Join(tmpDir, "file.txt"), filepath.Join(tmpDir, "directory", "file_a.txt"), filepath.Join(tmpDir, "directory", "file_b.txt"), filepath.Join(tmpDir, "directory", "file_c.txt"))
 	assert.Equal(t, expectedContext, context)
 }
 

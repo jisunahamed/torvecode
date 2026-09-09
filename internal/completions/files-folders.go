@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/jisunahamed/torvecode/internal/fileutil"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/tui/components/dialog"
 	"github.com/lithammer/fuzzysearch/fuzzy"
-	"github.com/opencode-ai/opencode/internal/fileutil"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/tui/components/dialog"
 )
 
 type filesAndFoldersContextGroup struct {

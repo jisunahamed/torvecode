@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	"github.com/opencode-ai/opencode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/logging"
 	"github.com/spf13/viper"
 )
 
@@ -98,9 +98,9 @@ type Config struct {
 
 // Application constants
 const (
-	defaultDataDirectory = ".opencode"
+	defaultDataDirectory = ".torvecode"
 	defaultLogLevel      = "info"
-	appName              = "opencode"
+	appName              = "torvecode"
 
 	MaxTokensFallbackDefault = 4096
 )
@@ -111,12 +111,12 @@ var defaultContextPaths = []string{
 	".cursor/rules/",
 	"CLAUDE.md",
 	"CLAUDE.local.md",
-	"opencode.md",
-	"opencode.local.md",
-	"OpenCode.md",
-	"OpenCode.local.md",
-	"OPENCODE.md",
-	"OPENCODE.local.md",
+	"torvecode.md",
+	"torvecode.local.md",
+	"Torvecode.md",
+	"Torvecode.local.md",
+	"TORVECODE.md",
+	"TORVECODE.local.md",
 }
 
 // Global configuration instance
@@ -160,7 +160,7 @@ func Load(workingDir string, debug bool) (*Config, error) {
 	if cfg.Debug {
 		defaultLevel = slog.LevelDebug
 	}
-	if os.Getenv("OPENCODE_DEV_DEBUG") == "true" {
+	if os.Getenv("TORVECODE_DEV_DEBUG") == "true" {
 		loggingFile := fmt.Sprintf("%s/%s", cfg.Data.Directory, "debug.log")
 		messagesPath := fmt.Sprintf("%s/%s", cfg.Data.Directory, "messages")
 
@@ -230,16 +230,19 @@ func configureViper() {
 func setDefaults(debug bool) {
 	viper.SetDefault("data.directory", defaultDataDirectory)
 	viper.SetDefault("contextPaths", defaultContextPaths)
-	viper.SetDefault("tui.theme", "opencode")
+	viper.SetDefault("tui.theme", "torvecode")
 	viper.SetDefault("autoCompact", true)
 
 	// Set default shell from environment or fallback to /bin/bash
 	shellPath := os.Getenv("SHELL")
-	if shellPath == "" {
+	if runtime.GOOS == "windows" {
+		shellPath = "powershell"
+		viper.SetDefault("shell.args", []string{"-NoLogo", "-NoProfile"})
+	} else if shellPath == "" {
 		shellPath = "/bin/bash"
+		viper.SetDefault("shell.args", []string{"-l"})
 	}
 	viper.SetDefault("shell.path", shellPath)
-	viper.SetDefault("shell.args", []string{"-l"})
 
 	if debug {
 		viper.SetDefault("debug", true)
@@ -253,6 +256,19 @@ func setDefaults(debug bool) {
 // setProviderDefaults configures LLM provider defaults based on provider provided by
 // environment variables and configuration file.
 func setProviderDefaults() {
+	if apiKey := os.Getenv("TORVE_API_KEY"); apiKey != "" {
+		viper.SetDefault("providers.torve.apiKey", apiKey)
+		viper.SetDefault("providers.torve-anthropic.apiKey", apiKey)
+		for id, model := range models.SupportedModels {
+			if model.Provider != models.ProviderTorve && model.Provider != models.ProviderTorveAnthropic {
+				continue
+			}
+			for _, name := range []AgentName{AgentCoder, AgentSummarizer, AgentTask, AgentTitle} {
+				viper.SetDefault("agents."+string(name)+".model", id)
+			}
+			return
+		}
+	}
 	// Set all API keys we can find in the environment
 	// Note: Viper does not default if the json apiKey is ""
 	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
@@ -491,6 +507,9 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 		}
 		return nil
 	}
+	if model.Provider != models.ProviderTorve && model.Provider != models.ProviderTorveAnthropic {
+		return fmt.Errorf("Torvecode only supports models published by Torve AI")
+	}
 
 	// Check if provider for the model is configured
 	provider := model.Provider
@@ -563,7 +582,7 @@ func validateAgent(cfg *Config, name AgentName, agent Agent) error {
 	}
 
 	// Validate reasoning effort for models that support reasoning
-	if model.CanReason && provider == models.ProviderOpenAI || provider == models.ProviderLocal {
+	if model.CanReason && (provider == models.ProviderOpenAI || provider == models.ProviderTorve || provider == models.ProviderLocal) {
 		if agent.ReasoningEffort == "" {
 			// Set default reasoning effort for models that support it
 			logging.Info("setting default reasoning effort for model that supports reasoning",
@@ -643,6 +662,10 @@ func Validate() error {
 // getProviderAPIKey gets the API key for a provider from environment variables
 func getProviderAPIKey(provider models.ModelProvider) string {
 	switch provider {
+	case models.ProviderTorve:
+		return os.Getenv("TORVE_API_KEY")
+	case models.ProviderTorveAnthropic:
+		return os.Getenv("TORVE_API_KEY")
 	case models.ProviderAnthropic:
 		return os.Getenv("ANTHROPIC_API_KEY")
 	case models.ProviderOpenAI:

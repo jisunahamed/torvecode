@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/pubsub"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/pubsub"
 )
 
 var ErrorPermissionDenied = errors.New("permission denied")
@@ -39,6 +39,7 @@ type Service interface {
 	Deny(permission PermissionRequest)
 	Request(opts CreatePermissionRequest) bool
 	AutoApproveSession(sessionID string)
+	DenySession(sessionID string)
 }
 
 type permissionService struct {
@@ -47,6 +48,7 @@ type permissionService struct {
 	sessionPermissions  []PermissionRequest
 	pendingRequests     sync.Map
 	autoApproveSessions []string
+	deniedSessions      []string
 }
 
 func (s *permissionService) GrantPersistant(permission PermissionRequest) {
@@ -74,6 +76,9 @@ func (s *permissionService) Deny(permission PermissionRequest) {
 func (s *permissionService) Request(opts CreatePermissionRequest) bool {
 	if slices.Contains(s.autoApproveSessions, opts.SessionID) {
 		return true
+	}
+	if slices.Contains(s.deniedSessions, opts.SessionID) {
+		return false
 	}
 	dir := filepath.Dir(opts.Path)
 	if dir == "." {
@@ -109,6 +114,10 @@ func (s *permissionService) Request(opts CreatePermissionRequest) bool {
 
 func (s *permissionService) AutoApproveSession(sessionID string) {
 	s.autoApproveSessions = append(s.autoApproveSessions, sessionID)
+}
+
+func (s *permissionService) DenySession(sessionID string) {
+	s.deniedSessions = append(s.deniedSessions, sessionID)
 }
 
 func NewPermissionService() Service {

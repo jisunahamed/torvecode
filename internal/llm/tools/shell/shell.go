@@ -1,18 +1,20 @@
 package shell
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/config"
 )
 
 type PersistentShell struct {
@@ -59,25 +61,30 @@ func GetPersistentShell(workingDir string) *PersistentShell {
 }
 
 func newPersistentShell(cwd string) *PersistentShell {
+	if runtime.GOOS == "windows" {
+		shell := &PersistentShell{isAlive: true, cwd: cwd, commandQueue: make(chan *commandExecution, 10)}
+		go shell.processCommands()
+		return shell
+	}
 	// Get shell configuration from config
 	cfg := config.Get()
-	
+
 	// Default to environment variable if config is not set or nil
 	var shellPath string
 	var shellArgs []string
-	
+
 	if cfg != nil {
 		shellPath = cfg.Shell.Path
 		shellArgs = cfg.Shell.Args
 	}
-	
+
 	if shellPath == "" {
 		shellPath = os.Getenv("SHELL")
 		if shellPath == "" {
 			shellPath = "/bin/bash"
 		}
 	}
-	
+
 	// Default shell args
 	if len(shellArgs) == 0 {
 		shellArgs = []string{"-l"}
@@ -139,6 +146,9 @@ func (s *PersistentShell) processCommands() {
 func (s *PersistentShell) execCommand(command string, timeout time.Duration, ctx context.Context) commandResult {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if runtime.GOOS == "windows" {
+		return s.execPowerShell(command, timeout, ctx)
+	}
 
 	if !s.isAlive {
 		return commandResult{
@@ -149,10 +159,10 @@ func (s *PersistentShell) execCommand(command string, timeout time.Duration, ctx
 	}
 
 	tempDir := os.TempDir()
-	stdoutFile := filepath.Join(tempDir, fmt.Sprintf("opencode-stdout-%d", time.Now().UnixNano()))
-	stderrFile := filepath.Join(tempDir, fmt.Sprintf("opencode-stderr-%d", time.Now().UnixNano()))
-	statusFile := filepath.Join(tempDir, fmt.Sprintf("opencode-status-%d", time.Now().UnixNano()))
-	cwdFile := filepath.Join(tempDir, fmt.Sprintf("opencode-cwd-%d", time.Now().UnixNano()))
+	stdoutFile := filepath.Join(tempDir, fmt.Sprintf("torvecode-stdout-%d", time.Now().UnixNano()))
+	stderrFile := filepath.Join(tempDir, fmt.Sprintf("torvecode-stderr-%d", time.Now().UnixNano()))
+	statusFile := filepath.Join(tempDir, fmt.Sprintf("torvecode-status-%d", time.Now().UnixNano()))
+	cwdFile := filepath.Join(tempDir, fmt.Sprintf("torvecode-cwd-%d", time.Now().UnixNano()))
 
 	defer func() {
 		os.Remove(stdoutFile)
@@ -243,6 +253,29 @@ echo $EXEC_EXIT_CODE > %s
 	}
 }
 
+func (s *PersistentShell) execPowerShell(command string, timeout time.Duration, parent context.Context) commandResult {
+	ctx := parent
+	cancel := func() {}
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(parent, timeout)
+	}
+	defer cancel()
+	script := `$ErrorActionPreference='Stop'; Set-Location -LiteralPath $env:TORVE_CWD; & ([scriptblock]::Create($env:TORVE_COMMAND))`
+	cmd := exec.CommandContext(ctx, "powershell", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd.Env = append(os.Environ(), "TORVE_CWD="+s.cwd, "TORVE_COMMAND="+command, "GIT_EDITOR=true")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	exitCode := 0
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	} else if err != nil {
+		exitCode = 1
+	}
+	interrupted := errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded)
+	return commandResult{stdout: stdout.String(), stderr: stderr.String(), exitCode: exitCode, interrupted: interrupted, err: err}
+}
+
 func (s *PersistentShell) killChildren() {
 	if s.cmd == nil || s.cmd.Process == nil {
 		return
@@ -292,6 +325,11 @@ func (s *PersistentShell) Close() {
 	defer s.mu.Unlock()
 
 	if !s.isAlive {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		s.isAlive = false
+		close(s.commandQueue)
 		return
 	}
 

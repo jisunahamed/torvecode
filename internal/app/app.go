@@ -9,17 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/db"
-	"github.com/opencode-ai/opencode/internal/format"
-	"github.com/opencode-ai/opencode/internal/history"
-	"github.com/opencode-ai/opencode/internal/llm/agent"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/lsp"
-	"github.com/opencode-ai/opencode/internal/message"
-	"github.com/opencode-ai/opencode/internal/permission"
-	"github.com/opencode-ai/opencode/internal/session"
-	"github.com/opencode-ai/opencode/internal/tui/theme"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/db"
+	"github.com/jisunahamed/torvecode/internal/format"
+	"github.com/jisunahamed/torvecode/internal/history"
+	"github.com/jisunahamed/torvecode/internal/llm/agent"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/lsp"
+	"github.com/jisunahamed/torvecode/internal/message"
+	"github.com/jisunahamed/torvecode/internal/permission"
+	"github.com/jisunahamed/torvecode/internal/session"
+	"github.com/jisunahamed/torvecode/internal/tui/theme"
 )
 
 type App struct {
@@ -97,7 +97,7 @@ func (app *App) initTheme() {
 }
 
 // RunNonInteractive handles the execution flow when a prompt is provided via CLI flag.
-func (a *App) RunNonInteractive(ctx context.Context, prompt string, outputFormat string, quiet bool) error {
+func (a *App) RunNonInteractive(ctx context.Context, prompt string, outputFormat string, quiet bool, allowTools bool) error {
 	logging.Info("Running in non-interactive mode")
 
 	// Start spinner if not in quiet mode
@@ -125,8 +125,11 @@ func (a *App) RunNonInteractive(ctx context.Context, prompt string, outputFormat
 	}
 	logging.Info("Created session for non-interactive run", "session_id", sess.ID)
 
-	// Automatically approve all permission requests for this non-interactive session
-	a.Permissions.AutoApproveSession(sess.ID)
+	if allowTools {
+		a.Permissions.AutoApproveSession(sess.ID)
+	} else {
+		a.Permissions.DenySession(sess.ID)
+	}
 
 	done, err := a.CoderAgent.Run(ctx, sess.ID, prompt)
 	if err != nil {

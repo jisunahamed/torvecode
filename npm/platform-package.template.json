@@ -1,0 +1,10 @@
+{
+  "name": "@torveai/cli-OS-ARCH",
+  "version": "0.1.0-beta.1",
+  "description": "Torvecode binary for OS ARCH",
+  "license": "MIT",
+  "os": ["OS"],
+  "cpu": ["ARCH"],
+  "files": ["bin"],
+  "exports": { "./bin/torve": "./bin/torve", "./bin/torve.exe": "./bin/torve.exe" }
+}

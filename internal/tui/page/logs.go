@@ -4,9 +4,9 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/opencode-ai/opencode/internal/tui/components/logs"
-	"github.com/opencode-ai/opencode/internal/tui/layout"
-	"github.com/opencode-ai/opencode/internal/tui/styles"
+	"github.com/jisunahamed/torvecode/internal/tui/components/logs"
+	"github.com/jisunahamed/torvecode/internal/tui/layout"
+	"github.com/jisunahamed/torvecode/internal/tui/styles"
 )
 
 var LogsPage PageID = "logs"

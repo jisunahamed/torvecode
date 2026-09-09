@@ -12,17 +12,18 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/bedrock"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/opencode-ai/opencode/internal/config"
-	"github.com/opencode-ai/opencode/internal/llm/models"
-	toolsPkg "github.com/opencode-ai/opencode/internal/llm/tools"
-	"github.com/opencode-ai/opencode/internal/logging"
-	"github.com/opencode-ai/opencode/internal/message"
+	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	toolsPkg "github.com/jisunahamed/torvecode/internal/llm/tools"
+	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/message"
 )
 
 type anthropicOptions struct {
 	useBedrock   bool
 	disableCache bool
 	shouldThink  func(userMessage string) bool
+	baseURL      string
 }
 
 type AnthropicOption func(*anthropicOptions)
@@ -44,6 +45,9 @@ func newAnthropicClient(opts providerClientOptions) AnthropicClient {
 	anthropicClientOptions := []option.RequestOption{}
 	if opts.apiKey != "" {
 		anthropicClientOptions = append(anthropicClientOptions, option.WithAPIKey(opts.apiKey))
+	}
+	if anthropicOpts.baseURL != "" {
+		anthropicClientOptions = append(anthropicClientOptions, option.WithBaseURL(anthropicOpts.baseURL))
 	}
 	if anthropicOpts.useBedrock {
 		anthropicClientOptions = append(anthropicClientOptions, bedrock.WithLoadDefaultConfig(context.Background()))
@@ -459,6 +463,10 @@ func WithAnthropicDisableCache() AnthropicOption {
 	return func(options *anthropicOptions) {
 		options.disableCache = true
 	}
+}
+
+func WithAnthropicBaseURL(baseURL string) AnthropicOption {
+	return func(options *anthropicOptions) { options.baseURL = baseURL }
 }
 
 func DefaultShouldThinkFn(s string) bool {

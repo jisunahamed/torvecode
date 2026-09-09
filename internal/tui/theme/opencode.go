@@ -4,30 +4,30 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// OpenCodeTheme implements the Theme interface with OpenCode brand colors.
+// TorvecodeTheme implements the Theme interface with Torvecode brand colors.
 // It provides both dark and light variants.
-type OpenCodeTheme struct {
+type TorvecodeTheme struct {
 	BaseTheme
 }
 
-// NewOpenCodeTheme creates a new instance of the OpenCode theme.
-func NewOpenCodeTheme() *OpenCodeTheme {
-	// OpenCode color palette
+// NewTorvecodeTheme creates a new instance of the Torvecode theme.
+func NewTorvecodeTheme() *TorvecodeTheme {
+	// Torvecode color palette
 	// Dark mode colors
-	darkBackground := "#212121"
-	darkCurrentLine := "#252525"
-	darkSelection := "#303030"
-	darkForeground := "#e0e0e0"
-	darkComment := "#6a6a6a"
-	darkPrimary := "#fab283"   // Primary orange/gold
-	darkSecondary := "#5c9cf5" // Secondary blue
-	darkAccent := "#9d7cd8"    // Accent purple
-	darkRed := "#e06c75"       // Error red
-	darkOrange := "#f5a742"    // Warning orange
-	darkGreen := "#7fd88f"     // Success green
-	darkCyan := "#56b6c2"      // Info cyan
-	darkYellow := "#e5c07b"    // Emphasized text
-	darkBorder := "#4b4c5c"    // Border color
+	darkBackground := "#000000"
+	darkCurrentLine := "#101311"
+	darkSelection := "#1a211d"
+	darkForeground := "#f2f4f2"
+	darkComment := "#7b847e"
+	darkPrimary := "#78a889"
+	darkSecondary := "#aab4ad"
+	darkAccent := "#78a889"
+	darkRed := "#e06c75"    // Error red
+	darkOrange := "#f5a742" // Warning orange
+	darkGreen := "#78a889"
+	darkCyan := "#56b6c2" // Info cyan
+	darkYellow := "#d8dfda"
+	darkBorder := "#28312b"
 
 	// Light mode colors
 	lightBackground := "#f8f8f8"
@@ -35,17 +35,17 @@ func NewOpenCodeTheme() *OpenCodeTheme {
 	lightSelection := "#e5e5e6"
 	lightForeground := "#2a2a2a"
 	lightComment := "#8a8a8a"
-	lightPrimary := "#3b7dd8"   // Primary blue
-	lightSecondary := "#7b5bb6" // Secondary purple
-	lightAccent := "#d68c27"    // Accent orange/gold
-	lightRed := "#d1383d"       // Error red
-	lightOrange := "#d68c27"    // Warning orange
-	lightGreen := "#3d9a57"     // Success green
-	lightCyan := "#318795"      // Info cyan
-	lightYellow := "#b0851f"    // Emphasized text
-	lightBorder := "#d3d3d3"    // Border color
+	lightPrimary := "#3f7152"
+	lightSecondary := "#526159"
+	lightAccent := "#3f7152"
+	lightRed := "#d1383d"    // Error red
+	lightOrange := "#d68c27" // Warning orange
+	lightGreen := "#3d9a57"  // Success green
+	lightCyan := "#318795"   // Info cyan
+	lightYellow := "#b0851f" // Emphasized text
+	lightBorder := "#d3d3d3" // Border color
 
-	theme := &OpenCodeTheme{}
+	theme := &TorvecodeTheme{}
 
 	// Base colors
 	theme.PrimaryColor = lipgloss.AdaptiveColor{
@@ -271,7 +271,6 @@ func NewOpenCodeTheme() *OpenCodeTheme {
 }
 
 func init() {
-	// Register the OpenCode theme with the theme manager
-	RegisterTheme("opencode", NewOpenCodeTheme())
+	// Register the Torvecode theme with the theme manager
+	RegisterTheme("torvecode", NewTorvecodeTheme())
 }
-
