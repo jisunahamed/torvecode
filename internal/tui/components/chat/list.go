@@ -19,6 +19,7 @@ import (
 	"github.com/jisunahamed/torvecode/internal/message"
 	"github.com/jisunahamed/torvecode/internal/pubsub"
 	"github.com/jisunahamed/torvecode/internal/session"
+	"github.com/jisunahamed/torvecode/internal/tui/brand"
 	"github.com/jisunahamed/torvecode/internal/tui/components/dialog"
 	"github.com/jisunahamed/torvecode/internal/tui/styles"
 	"github.com/jisunahamed/torvecode/internal/tui/theme"
@@ -419,13 +420,10 @@ func (m *messagesCmp) help() string {
 func (m *messagesCmp) initialScreen() string {
 	t := theme.CurrentTheme()
 	base := styles.BaseStyle()
-	contentWidth := min(72, max(34, m.width-8))
+	contentWidth := min(72, max(12, m.width-8))
 
-	wordmark := lipgloss.JoinHorizontal(lipgloss.Bottom,
-		base.Bold(true).Foreground(t.Text()).Render("TORVE"),
-		base.Bold(true).Foreground(t.Primary()).Render("CODE"),
-	)
-	subtitle := base.Foreground(t.TextMuted()).Render("AI coding workspace for this repository")
+	wordmark := brand.Signature(m.width - 8)
+	subtitle := base.Foreground(t.TextMuted()).Render("Your next idea starts here.")
 
 	cwd, _ := os.Getwd()
 	folder := filepath.Base(cwd)
@@ -435,12 +433,12 @@ func (m *messagesCmp) initialScreen() string {
 	modelName := string(config.Get().Agents[config.AgentCoder].Model)
 	workspace := lipgloss.NewStyle().
 		Width(contentWidth).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
+		Border(lipgloss.RoundedBorder()).
 		BorderForeground(t.BorderFocused()).
 		Padding(1, 2).
 		Render(lipgloss.JoinVertical(lipgloss.Left,
-			base.Bold(true).Foreground(t.Text()).Render("Ask Torvecode anything"),
-			base.Foreground(t.TextMuted()).Render("Type below to review, explain, edit, or test your code."),
+			base.Bold(true).Foreground(t.Text()).Render("What are we building?"),
+			base.Foreground(t.TextMuted()).Render("Describe a change, explore this codebase, or fix a bug."),
 			"",
 			base.Foreground(t.Primary()).Render("⌁ "+folder)+
 				base.Foreground(t.TextMuted()).Render("   model "+modelName),

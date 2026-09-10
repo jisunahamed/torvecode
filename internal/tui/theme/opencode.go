@@ -18,14 +18,14 @@ func NewTorvecodeTheme() *TorvecodeTheme {
 	darkCurrentLine := "#101311"
 	darkSelection := "#1a211d"
 	darkForeground := "#f2f4f2"
-	darkComment := "#7b847e"
-	darkPrimary := "#78a889"
+	darkComment := "#8BABA3"
+	darkPrimary := "#C7FF24"
 	darkSecondary := "#aab4ad"
-	darkAccent := "#78a889"
+	darkAccent := "#00DCC4"
 	darkRed := "#e06c75"    // Error red
 	darkOrange := "#f5a742" // Warning orange
-	darkGreen := "#78a889"
-	darkCyan := "#56b6c2" // Info cyan
+	darkGreen := "#40F887"
+	darkCyan := "#00DCC4" // Info cyan
 	darkYellow := "#d8dfda"
 	darkBorder := "#28312b"
 

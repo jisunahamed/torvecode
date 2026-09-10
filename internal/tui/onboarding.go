@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jisunahamed/torvecode/internal/auth"
+	"github.com/jisunahamed/torvecode/internal/tui/brand"
 )
 
 type onboardingStage int
@@ -194,21 +195,15 @@ func (m onboardingModel) View() string {
 	if height <= 0 {
 		height = 24
 	}
-	cardWidth := minInt(68, maxInt(36, width-6))
+	cardWidth := minInt(68, maxInt(12, width-8))
 
-	green := lipgloss.Color("#4ADE80")
-	cyan := lipgloss.Color("#35D0BA")
-	text := lipgloss.Color("#D7E2DA")
-	muted := lipgloss.Color("#748579")
-	panel := lipgloss.Color("#0C1811")
-	if os.Getenv("NO_COLOR") != "" {
-		green, cyan, text, muted, panel = "", "", "", "", ""
-	}
-
-	mark := lipgloss.NewStyle().Bold(true).Foreground(text).Render("TORVE") +
-		lipgloss.NewStyle().Bold(true).Foreground(green).Render("CODE")
-	tagline := lipgloss.NewStyle().Foreground(muted).Render("Your codebase. Your Torve models. One terminal.")
-
+	green := brand.Ink("#C7FF24", "#527000")
+	cyan := brand.Ink("#00DCC4", "#007B70")
+	text := brand.Ink("#F7FAFC", "#172421")
+	muted := brand.Ink("#8BABA3", "#50685F")
+	panel := brand.Ink("#10231D", "#E5F2EB")
+	mark := brand.Signature(width - 6)
+	tagline := lipgloss.NewStyle().Width(maxInt(12, width-6)).Align(lipgloss.Center).Foreground(muted).Render("Connect your account. Keep your work in your terminal.")
 	cwd, _ := os.Getwd()
 	folder := filepath.Base(cwd)
 	if folder == "." || folder == string(filepath.Separator) || folder == "" {
@@ -229,6 +224,8 @@ func (m onboardingModel) View() string {
 				style = style.Bold(true).Foreground(green).Background(panel)
 			}
 			rows = append(rows, prefix+style.Render(option))
+			descriptions := []string{"Continue securely in your browser", "Connect with your own Torve key"}
+			rows = append(rows, lipgloss.NewStyle().Foreground(muted).PaddingLeft(3).Width(cardWidth-6).Render(descriptions[i]), "")
 		}
 		body = lipgloss.JoinVertical(lipgloss.Left, rows...)
 	case stageAPIKey:
@@ -254,11 +251,11 @@ func (m onboardingModel) View() string {
 	status := lipgloss.NewStyle().Width(cardWidth - 4).Foreground(statusColor).Render(m.status)
 	card := lipgloss.NewStyle().
 		Width(cardWidth).
-		Border(lipgloss.NormalBorder()).
+		Border(lipgloss.RoundedBorder()).
 		BorderLeft(true).
-		BorderTop(false).
-		BorderRight(false).
-		BorderBottom(false).
+		BorderTop(true).
+		BorderRight(true).
+		BorderBottom(true).
 		BorderForeground(cyan).
 		Padding(1, 2).
 		Render(lipgloss.JoinVertical(lipgloss.Left, body, "", status))
@@ -274,7 +271,7 @@ func (m onboardingModel) View() string {
 		card,
 		"",
 		location,
-		lipgloss.NewStyle().Foreground(muted).Render(help),
+		lipgloss.NewStyle().Width(maxInt(12, width-6)).Align(lipgloss.Center).Foreground(muted).Render(help),
 	)
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }

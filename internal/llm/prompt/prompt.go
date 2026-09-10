@@ -9,7 +9,7 @@ import (
 
 	"github.com/jisunahamed/torvecode/internal/config"
 	"github.com/jisunahamed/torvecode/internal/llm/models"
-	"github.com/jisunahamed/torvecode/internal/logging"
+	"github.com/jisunahamed/torvecode/internal/skills"
 )
 
 func GetAgentPrompt(agentName config.AgentName, provider models.ModelProvider) string {
@@ -30,7 +30,7 @@ func GetAgentPrompt(agentName config.AgentName, provider models.ModelProvider) s
 	if agentName == config.AgentCoder || agentName == config.AgentTask {
 		// Add context from project-specific instruction files if they exist
 		contextContent := getContextFromPaths()
-		logging.Debug("Context content", "Context", contextContent)
+		contextContent += skills.Catalog(config.WorkingDirectory())
 		if contextContent != "" {
 			return fmt.Sprintf("%s\n\n# Project-Specific Context\n Make sure to follow the instructions in the context below\n%s", basePrompt, contextContent)
 		}
