@@ -163,6 +163,12 @@ func renderAssistantMessage(
 				Foreground(t.TextMuted()).
 				Render(fmt.Sprintf(" %s (%s)", models.SupportedModels[msg.Model].Name, "permission denied")),
 			)
+		case message.FinishReasonMaxTokens:
+			info = append(info, baseStyle.
+				Width(width-1).
+				Foreground(t.Warning()).
+				Render(fmt.Sprintf(" %s (stopped: output token limit)", models.SupportedModels[msg.Model].Name)),
+			)
 		}
 	}
 	if content != "" || (finished && finishData.Reason == message.FinishReasonEndTurn) {

@@ -77,3 +77,17 @@ func TestRegisterModelsRejectsUnsupportedOperations(t *testing.T) {
 		t.Fatal("RegisterModels accepted an unsupported operation")
 	}
 }
+
+func TestRegisterModelsConvertsMicrousdPricing(t *testing.T) {
+	first, err := RegisterModels([]CatalogModel{{
+		ID: "priced-model", DisplayName: "Priced", Protocol: "openai", Operation: "chat.completions",
+		InputPrice: "3000000", OutputPrice: "15000000", CachedInputPrice: "300000",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := models.SupportedModels[first]
+	if model.CostPer1MIn != 3 || model.CostPer1MOut != 15 || model.CostPer1MInCached != 0.3 {
+		t.Fatalf("unexpected model prices: %#v", model)
+	}
+}

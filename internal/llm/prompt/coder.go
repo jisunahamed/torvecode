@@ -1,16 +1,16 @@
 package prompt
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jisunahamed/torvecode/internal/config"
 	"github.com/jisunahamed/torvecode/internal/llm/models"
-	"github.com/jisunahamed/torvecode/internal/llm/tools"
 )
 
 func CoderPrompt(provider models.ModelProvider) string {
@@ -172,10 +172,6 @@ func getEnvironmentInfo() string {
 	isGit := isGitRepo(cwd)
 	platform := runtime.GOOS
 	date := time.Now().Format("1/2/2006")
-	ls := tools.NewLsTool()
-	r, _ := ls.Run(context.Background(), tools.ToolCall{
-		Input: `{"path":"."}`,
-	})
 	return fmt.Sprintf(`Here is useful information about the environment you are running in:
 <env>
 Working directory: %s
@@ -186,7 +182,33 @@ Today's date: %s
 <project>
 %s
 </project>
-		`, cwd, boolToYesNo(isGit), platform, date, r.Content)
+		`, cwd, boolToYesNo(isGit), platform, date, projectOverview(cwd))
+}
+
+func projectOverview(cwd string) string {
+	entries, err := os.ReadDir(cwd)
+	if err != nil {
+		return "Project files will be discovered with tools when needed."
+	}
+	names := make([]string, 0, min(len(entries), 80))
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || name == "dist" || name == "build" {
+			continue
+		}
+		if entry.IsDir() {
+			name += "/"
+		}
+		names = append(names, name)
+		if len(names) == 80 {
+			break
+		}
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return "No visible top-level files."
+	}
+	return "Top-level entries (use tools for details):\n- " + strings.Join(names, "\n- ")
 }
 
 func isGitRepo(dir string) bool {

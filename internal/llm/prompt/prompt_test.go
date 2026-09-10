@@ -4,17 +4,34 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetContextFromPaths(t *testing.T) {
-	t.Parallel()
-
 	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("USERPROFILE", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Setenv("TORVE_API_KEY", "test-key")
+	configFile := filepath.Join(tmpDir, ".torvecode.json")
+	require.NoError(t, os.WriteFile(configFile, []byte("{}"), 0600))
+	viper.Reset()
+	viper.SetConfigFile(configFile)
+	models.RegisterTorveModels([]models.Model{{
+		ID:               "test-torve",
+		Name:             "Test Torve",
+		Provider:         models.ProviderTorve,
+		APIModel:         "test-torve",
+		ContextWindow:    128000,
+		DefaultMaxTokens: 4096,
+	}})
 	_, err := config.Load(tmpDir, false)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -54,4 +71,16 @@ func createTestFiles(t *testing.T, tmpDir string, testFiles []string) {
 			require.NoError(t, err)
 		}
 	}
+}
+
+func TestProjectOverviewIsShallowAndBounded(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 100; i++ {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, fmt.Sprintf("file-%03d.txt", i)), []byte("x"), 0644))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "nested", "deep"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "nested", "deep", "secret.txt"), []byte("x"), 0644))
+	overview := projectOverview(dir)
+	assert.NotContains(t, overview, "secret.txt")
+	assert.LessOrEqual(t, strings.Count(overview, "\n- "), 80)
 }

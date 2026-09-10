@@ -20,6 +20,9 @@ var modelsCmd = &cobra.Command{Use: "models", Short: "List coding models availab
 	if err != nil {
 		return err
 	}
+	if len(items) > 0 && items[0].PlanTPM > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "Plan TPM: %d (Torvecode reserves 25%% for output)\n", items[0].PlanTPM)
+	}
 	for _, item := range items {
 		fmt.Fprintf(cmd.OutOrStdout(), "%-32s  %-10s  %-18s  tools=%t  images=%t\n", item.ID, item.Protocol, item.Operation, item.ToolUse, item.Operation == "chat.completions" || item.Operation == "messages")
 	}

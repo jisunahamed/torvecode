@@ -222,6 +222,9 @@ func (o *openaiClient) send(ctx context.Context, messages []message.Message, too
 		if openaiResponse.Choices[0].Message.Content != "" {
 			content = openaiResponse.Choices[0].Message.Content
 		}
+		if content == "" {
+			content = extractReasoning(openaiResponse.Choices[0].Message.RawJSON())
+		}
 
 		toolCalls := o.toolCalls(*openaiResponse)
 		finishReason := o.finishReason(string(openaiResponse.Choices[0].FinishReason))
@@ -271,6 +274,12 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 				acc.AddChunk(chunk)
 
 				for _, choice := range chunk.Choices {
+					if reasoning := extractReasoning(choice.Delta.RawJSON()); reasoning != "" {
+						eventChan <- ProviderEvent{
+							Type:    EventThinkingDelta,
+							Content: reasoning,
+						}
+					}
 					if choice.Delta.Content != "" {
 						eventChan <- ProviderEvent{
 							Type:    EventContentDelta,
@@ -333,6 +342,23 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 	}()
 
 	return eventChan
+}
+
+func extractReasoning(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var value struct {
+		ReasoningContent string `json:"reasoning_content"`
+		Reasoning        string `json:"reasoning"`
+	}
+	if json.Unmarshal([]byte(raw), &value) != nil {
+		return ""
+	}
+	if value.ReasoningContent != "" {
+		return value.ReasoningContent
+	}
+	return value.Reasoning
 }
 
 func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error) {

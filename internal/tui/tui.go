@@ -341,9 +341,13 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, util.ReportInfo("Session summarization complete")
 		} else if payload.Done && payload.Type == agent.AgentEventTypeResponse && a.selectedSession.ID != "" {
 			model := a.app.CoderAgent.Model()
-			contextWindow := model.ContextWindow
+			contextWindow := model.EffectiveContextWindow()
+			latest, err := a.app.Sessions.Get(context.Background(), a.selectedSession.ID)
+			if err == nil {
+				a.selectedSession = latest
+			}
 			tokens := a.selectedSession.CompletionTokens + a.selectedSession.PromptTokens
-			if (tokens >= int64(float64(contextWindow)*0.95)) && config.Get().AutoCompact {
+			if contextWindow > 0 && tokens >= int64(float64(contextWindow)*0.80) && config.Get().AutoCompact {
 				return a, util.CmdHandler(startCompactSessionMsg{})
 			}
 		}

@@ -20,6 +20,18 @@ type Model struct {
 	DefaultMaxTokens    int64         `json:"default_max_tokens"`
 	CanReason           bool          `json:"can_reason"`
 	SupportsAttachments bool          `json:"supports_attachments"`
+	PlanTPM             int64         `json:"plan_tpm,omitempty"`
+}
+
+func (m Model) EffectiveContextWindow() int64 {
+	window := m.ContextWindow
+	if m.PlanTPM > 0 {
+		planWindow := m.PlanTPM * 3 / 4
+		if window <= 0 || planWindow < window {
+			window = planWindow
+		}
+	}
+	return window
 }
 
 // Model IDs

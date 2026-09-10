@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/jisunahamed/torvecode/internal/llm/models"
@@ -259,15 +260,12 @@ func setProviderDefaults() {
 	if apiKey := os.Getenv("TORVE_API_KEY"); apiKey != "" {
 		viper.SetDefault("providers.torve.apiKey", apiKey)
 		viper.SetDefault("providers.torve-anthropic.apiKey", apiKey)
-		for id, model := range models.SupportedModels {
-			if model.Provider != models.ProviderTorve && model.Provider != models.ProviderTorveAnthropic {
-				continue
-			}
+		if id, ok := defaultTorveModel(); ok {
 			for _, name := range []AgentName{AgentCoder, AgentSummarizer, AgentTask, AgentTitle} {
 				viper.SetDefault("agents."+string(name)+".model", id)
 			}
-			return
 		}
+		return
 	}
 	// Set all API keys we can find in the environment
 	// Note: Viper does not default if the json apiKey is ""
@@ -692,6 +690,19 @@ func getProviderAPIKey(provider models.ModelProvider) string {
 
 // setDefaultModelForAgent sets a default model for an agent based on available providers
 func setDefaultModelForAgent(agent AgentName) bool {
+	if os.Getenv("TORVE_API_KEY") != "" {
+		if model, ok := defaultTorveModel(); ok {
+			maxTokens := models.SupportedModels[model].DefaultMaxTokens
+			if maxTokens <= 0 {
+				maxTokens = MaxTokensFallbackDefault
+			}
+			if agent == AgentTitle {
+				maxTokens = 80
+			}
+			cfg.Agents[agent] = Agent{Model: model, MaxTokens: maxTokens}
+			return true
+		}
+	}
 	if hasCopilotCredentials() {
 		maxTokens := int64(5000)
 		if agent == AgentTitle {
@@ -837,6 +848,20 @@ func setDefaultModelForAgent(agent AgentName) bool {
 	}
 
 	return false
+}
+
+func defaultTorveModel() (models.ModelID, bool) {
+	ids := make([]string, 0)
+	for id, model := range models.SupportedModels {
+		if model.Provider == models.ProviderTorve || model.Provider == models.ProviderTorveAnthropic {
+			ids = append(ids, string(id))
+		}
+	}
+	if len(ids) == 0 {
+		return "", false
+	}
+	sort.Strings(ids)
+	return models.ModelID(ids[0]), true
 }
 
 func updateCfgFile(updateCfg func(config *Config)) error {

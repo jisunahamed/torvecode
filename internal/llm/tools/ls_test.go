@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,6 +31,22 @@ func TestLsTool_Run(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "ls_tool_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
+	t.Setenv("HOME", tempDir)
+	t.Setenv("USERPROFILE", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", tempDir)
+	t.Setenv("TORVE_API_KEY", "test-key")
+	configFile := filepath.Join(tempDir, ".torvecode.json")
+	require.NoError(t, os.WriteFile(configFile, []byte("{}"), 0600))
+	viper.Reset()
+	viper.SetConfigFile(configFile)
+	models.RegisterTorveModels([]models.Model{{
+		ID:               "test-torve",
+		Name:             "Test Torve",
+		Provider:         models.ProviderTorve,
+		APIModel:         "test-torve",
+		ContextWindow:    128000,
+		DefaultMaxTokens: 4096,
+	}})
 	_, err = config.Load(tempDir, false)
 	require.NoError(t, err)
 

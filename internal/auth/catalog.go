@@ -8,21 +8,27 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/jisunahamed/torvecode/internal/llm/models"
 )
 
 const catalogCacheTTL = 10 * time.Minute
+const catalogCacheVersion = 2
 
 type CatalogModel struct {
-	ID              string `json:"id"`
-	DisplayName     string `json:"display_name"`
-	Protocol        string `json:"protocol"`
-	Operation       string `json:"operation"`
-	ContextWindow   int64  `json:"context_window"`
-	MaxOutputTokens int64  `json:"max_output_tokens"`
-	ToolUse         bool   `json:"tool_use"`
+	ID               string `json:"id"`
+	DisplayName      string `json:"display_name"`
+	Protocol         string `json:"protocol"`
+	Operation        string `json:"operation"`
+	ContextWindow    int64  `json:"context_window"`
+	MaxOutputTokens  int64  `json:"max_output_tokens"`
+	ToolUse          bool   `json:"tool_use"`
+	InputPrice       string `json:"input_microusd_per_million"`
+	OutputPrice      string `json:"output_microusd_per_million"`
+	CachedInputPrice string `json:"cached_input_microusd_per_million"`
+	PlanTPM          int64  `json:"plan_tpm,omitempty"`
 }
 
 func FetchModels(ctx context.Context, credential Credential) ([]CatalogModel, error) {
@@ -41,10 +47,16 @@ func FetchModels(ctx context.Context, credential Credential) ([]CatalogModel, er
 		return nil, fmt.Errorf("model catalog request failed: HTTP %d", resp.StatusCode)
 	}
 	var envelope struct {
-		Data []CatalogModel `json:"data"`
+		Data   []CatalogModel `json:"data"`
+		Limits struct {
+			TPM int64 `json:"tpm"`
+		} `json:"limits"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return nil, err
+	}
+	for index := range envelope.Data {
+		envelope.Data[index].PlanTPM = envelope.Limits.TPM
 	}
 	_ = saveCatalogCache(credential, envelope.Data)
 	return envelope.Data, nil
@@ -61,6 +73,7 @@ func FetchModelsCached(ctx context.Context, credential Credential) ([]CatalogMod
 }
 
 type catalogCache struct {
+	Version    int            `json:"version"`
 	Credential string         `json:"credential"`
 	FetchedAt  time.Time      `json:"fetched_at"`
 	Models     []CatalogModel `json:"models"`
@@ -93,7 +106,7 @@ func loadCatalogCache(credential Credential) ([]CatalogModel, bool) {
 		return nil, false
 	}
 	var cache catalogCache
-	if json.Unmarshal(payload, &cache) != nil || cache.Credential != catalogCredentialID(credential) || time.Since(cache.FetchedAt) > catalogCacheTTL || len(cache.Models) == 0 {
+	if json.Unmarshal(payload, &cache) != nil || cache.Version != catalogCacheVersion || cache.Credential != catalogCredentialID(credential) || time.Since(cache.FetchedAt) > catalogCacheTTL || len(cache.Models) == 0 {
 		return nil, false
 	}
 	return cache.Models, true
@@ -107,7 +120,7 @@ func saveCatalogCache(credential Credential, entries []CatalogModel) error {
 	if err != nil {
 		return err
 	}
-	payload, err := json.Marshal(catalogCache{Credential: catalogCredentialID(credential), FetchedAt: time.Now().UTC(), Models: entries})
+	payload, err := json.Marshal(catalogCache{Version: catalogCacheVersion, Credential: catalogCredentialID(credential), FetchedAt: time.Now().UTC(), Models: entries})
 	if err != nil {
 		return err
 	}
@@ -126,11 +139,31 @@ func RegisterModels(entries []CatalogModel) (models.ModelID, error) {
 		} else if item.Protocol != "openai" || item.Operation != "chat.completions" {
 			continue
 		}
-		converted = append(converted, models.Model{ID: models.ModelID(item.ID), Name: item.DisplayName, Provider: provider, APIModel: item.ID, ContextWindow: item.ContextWindow, DefaultMaxTokens: item.MaxOutputTokens, SupportsAttachments: true})
+		converted = append(converted, models.Model{
+			ID:                  models.ModelID(item.ID),
+			Name:                item.DisplayName,
+			Provider:            provider,
+			APIModel:            item.ID,
+			ContextWindow:       item.ContextWindow,
+			DefaultMaxTokens:    item.MaxOutputTokens,
+			CostPer1MIn:         priceUSD(item.InputPrice),
+			CostPer1MOut:        priceUSD(item.OutputPrice),
+			CostPer1MInCached:   priceUSD(item.CachedInputPrice),
+			PlanTPM:             item.PlanTPM,
+			SupportsAttachments: true,
+		})
 	}
 	if len(converted) == 0 {
 		return "", fmt.Errorf("your account has no compatible chat models")
 	}
 	models.RegisterTorveModels(converted)
 	return converted[0].ID, nil
+}
+
+func priceUSD(microUSD string) float64 {
+	value, err := strconv.ParseFloat(microUSD, 64)
+	if err != nil || value <= 0 {
+		return 0
+	}
+	return value / 1_000_000
 }

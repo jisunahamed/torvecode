@@ -46,3 +46,12 @@ func TestTorveGatewayErrorLeavesUnknownErrorsUntouched(t *testing.T) {
 		t.Fatalf("unexpected mapping: %v", err)
 	}
 }
+
+func TestExtractReasoningSupportsCompatibleFields(t *testing.T) {
+	if got := extractReasoning(`{"reasoning_content":"checking files"}`); got != "checking files" {
+		t.Fatalf("reasoning_content = %q", got)
+	}
+	if got := extractReasoning(`{"reasoning":"planning"}`); got != "planning" {
+		t.Fatalf("reasoning = %q", got)
+	}
+}
