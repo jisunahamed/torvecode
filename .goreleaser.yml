@@ -39,6 +39,10 @@ brews:
   - repository:
       owner: torveai
       name: homebrew-tap
+    # Enable tap publishing after torveai/homebrew-tap has been created and
+    # the release token has write access. Until then, keep releases successful
+    # while still generating the formula in dist/homebrew.
+    skip_upload: true
     homepage: "https://torveai.com/torvecode"
     description: "Torve AI coding agent for the terminal"
     license: "MIT"
