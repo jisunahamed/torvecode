@@ -977,6 +977,22 @@ func New(app *app.App) tea.Model {
 		},
 	})
 	model.RegisterCommand(dialog.Command{
+		ID:          "image",
+		Title:       "/image",
+		Description: "Attach PNG, JPG or WebP",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlF})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "paste-image",
+		Title:       "/paste-image",
+		Description: "Attach an image from clipboard",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlV})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
 		ID:          "help",
 		Title:       "/help",
 		Description: "Show shortcuts and help",
@@ -999,6 +1015,14 @@ func New(app *app.App) tea.Model {
 		Handler: func(dialog.Command) tea.Cmd {
 			count := len(config.Get().MCPServers)
 			return util.ReportInfo(fmt.Sprintf("%d MCP server(s) configured in .torvecode.json", count))
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "documents",
+		Title:       "/documents",
+		Description: "View Microsoft MarkItDown support",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.ReportInfo("Attach PDF, Word, PowerPoint or Excel with Ctrl+F. Check setup with `torve documents status`.")
 		},
 	})
 	model.RegisterCommand(dialog.Command{

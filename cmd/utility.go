@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jisunahamed/torvecode/internal/auth"
+	"github.com/jisunahamed/torvecode/internal/documents"
 	"github.com/spf13/cobra"
 )
 
@@ -20,13 +21,18 @@ var modelsCmd = &cobra.Command{Use: "models", Short: "List coding models availab
 		return err
 	}
 	for _, item := range items {
-		fmt.Fprintf(cmd.OutOrStdout(), "%-32s  %-10s  %-18s  tools=%t\n", item.ID, item.Protocol, item.Operation, item.ToolUse)
+		fmt.Fprintf(cmd.OutOrStdout(), "%-32s  %-10s  %-18s  tools=%t  images=%t\n", item.ID, item.Protocol, item.Operation, item.ToolUse, item.Operation == "chat.completions" || item.Operation == "messages")
 	}
 	return nil
 }}
 
 var doctorCmd = &cobra.Command{Use: "doctor", Short: "Check the Torvecode installation and connection", RunE: func(cmd *cobra.Command, _ []string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "Torvecode %s/%s\nAPI: %s\nWebsite: %s\n", runtime.GOOS, runtime.GOARCH, auth.APIURL(), auth.WebURL())
+	if documents.Available() {
+		fmt.Fprintln(cmd.OutOrStdout(), "MarkItDown: available")
+	} else {
+		fmt.Fprintf(cmd.OutOrStdout(), "MarkItDown: optional, not installed (%s)\n", documents.InstallHint())
+	}
 	credential, err := auth.Resolve()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "Authentication: failed (%v)\n", err)

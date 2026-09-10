@@ -5,4 +5,5 @@ type Attachment struct {
 	FileName string
 	MimeType string
 	Content  []byte
+	Text     string
 }

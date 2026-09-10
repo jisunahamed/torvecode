@@ -2,6 +2,8 @@ package auth
 
 import "testing"
 
+import "github.com/jisunahamed/torvecode/internal/llm/models"
+
 func TestRegisterModelsAcceptsOpenAIChatCompatibilityWithoutToolFlag(t *testing.T) {
 	first, err := RegisterModels([]CatalogModel{{
 		ID:              "torve-model",
@@ -17,6 +19,9 @@ func TestRegisterModelsAcceptsOpenAIChatCompatibilityWithoutToolFlag(t *testing.
 	}
 	if first != "torve-model" {
 		t.Fatalf("first model = %q, want %q", first, "torve-model")
+	}
+	if !models.SupportedModels[first].SupportsAttachments {
+		t.Fatal("OpenAI-compatible Torve model did not enable image attachments")
 	}
 }
 

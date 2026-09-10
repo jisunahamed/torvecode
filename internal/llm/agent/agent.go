@@ -196,9 +196,6 @@ func (a *agent) err(err error) AgentEvent {
 }
 
 func (a *agent) Run(ctx context.Context, sessionID string, content string, attachments ...message.Attachment) (<-chan AgentEvent, error) {
-	if !a.provider.Model().SupportsAttachments && attachments != nil {
-		attachments = nil
-	}
 	events := make(chan AgentEvent)
 	if a.IsSessionBusy(sessionID) {
 		return nil, ErrSessionBusy
@@ -214,6 +211,13 @@ func (a *agent) Run(ctx context.Context, sessionID string, content string, attac
 		})
 		var attachmentParts []message.ContentPart
 		for _, attachment := range attachments {
+			if attachment.Text != "" {
+				content += fmt.Sprintf("\n\n<document name=%q>\n%s\n</document>", attachment.FileName, attachment.Text)
+				continue
+			}
+			if !a.provider.Model().SupportsAttachments {
+				continue
+			}
 			attachmentParts = append(attachmentParts, message.BinaryContent{Path: attachment.FilePath, MIMEType: attachment.MimeType, Data: attachment.Content})
 		}
 		result := a.processGeneration(genCtx, sessionID, content, attachmentParts)

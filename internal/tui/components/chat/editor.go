@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jisunahamed/torvecode/internal/app"
+	"github.com/jisunahamed/torvecode/internal/clipboardimage"
 	"github.com/jisunahamed/torvecode/internal/logging"
 	"github.com/jisunahamed/torvecode/internal/message"
 	"github.com/jisunahamed/torvecode/internal/session"
@@ -36,6 +39,7 @@ type editorCmp struct {
 type EditorKeyMaps struct {
 	Send       key.Binding
 	OpenEditor key.Binding
+	PasteImage key.Binding
 }
 
 type bluredEditorKeyMaps struct {
@@ -57,6 +61,10 @@ var editorMaps = EditorKeyMaps{
 	OpenEditor: key.NewBinding(
 		key.WithKeys("ctrl+e"),
 		key.WithHelp("ctrl+e", "open editor"),
+	),
+	PasteImage: key.NewBinding(
+		key.WithKeys("ctrl+v"),
+		key.WithHelp("ctrl+v", "paste clipboard image"),
 	),
 }
 
@@ -140,6 +148,23 @@ func (m *editorCmp) send() tea.Cmd {
 	)
 }
 
+func (m *editorCmp) pasteClipboardImage() tea.Cmd {
+	if m.app == nil || !m.app.CoderAgent.Model().SupportsAttachments {
+		return util.ReportError(errors.New("the selected model does not support images; switch models and try again"))
+	}
+	return func() tea.Msg {
+		data, err := clipboardimage.Read(context.Background())
+		if err != nil {
+			return util.InfoMsg{Type: util.InfoTypeError, Msg: err.Error()}
+		}
+		return dialog.AttachmentAddedMsg{Attachment: message.Attachment{
+			FileName: "clipboard.png",
+			MimeType: "image/png",
+			Content:  data,
+		}}
+	}
+}
+
 func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -165,6 +190,9 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.textarea.Focused() && m.textarea.Value() == "" && msg.String() == "/" {
 			return m, util.CmdHandler(dialog.OpenCommandDialogMsg{})
+		}
+		if m.textarea.Focused() && key.Matches(msg, editorMaps.PasteImage) {
+			return m, m.pasteClipboardImage()
 		}
 		if key.Matches(msg, DeleteKeyMaps.AttachmentDeleteMode) {
 			m.deleteMode = true

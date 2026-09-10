@@ -36,6 +36,33 @@ external editor, help, skills, MCP status, workspace status, code review, logs,
 project initialization and context compaction. `Ctrl+K` remains available as a
 second way to open the same palette. A slash typed inside a message remains text.
 
+## Images and documents
+
+Use `Ctrl+F` or `/image` to attach PNG, JPG or WebP files. Use `/paste-image` or
+`Ctrl+V` to read an image from the clipboard when the terminal passes that key
+to Torvecode. Windows works through its built-in PowerShell clipboard API;
+macOS requires `pngpaste`, and Linux uses `wl-paste` or `xclip`. Terminals that
+consume Ctrl+V for text paste can always use `/paste-image`.
+
+Document attachments use Microsoft's MIT-licensed MarkItDown locally. Torvecode
+does not bundle Python because that would break the lightweight binary target.
+Install Python 3.10+ and run:
+
+```sh
+pip install 'markitdown[pdf,docx,pptx,xlsx,xls,outlook]'
+torve documents status
+torve documents convert report.pdf -o report.md
+```
+
+PDF, Word, PowerPoint, Excel, HTML, CSV, JSON, XML, EPUB, ZIP and Outlook files
+can then be selected with `Ctrl+F`. Conversion has a 60-second, 5 MB input and
+512 KiB Markdown-output limit to keep request context bounded.
+
+Torve's gateway remains authoritative for plan limits. RPM, TPM, concurrency,
+five-hour and monthly limits are not silently retried by the CLI. The CLI shows
+the reset delay returned by the gateway. Insufficient balance tells the user to
+add balance or purchase a plan in the Torve dashboard.
+
 ## Feature inventory
 
 Implemented in source: sessions/history, streaming chat, file editing, diff,

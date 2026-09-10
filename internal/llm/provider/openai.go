@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/jisunahamed/torvecode/internal/config"
@@ -339,6 +340,9 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 	if !errors.As(err, &apierr) {
 		return false, 0, err
 	}
+	if friendly := torveGatewayError(apierr); friendly != nil {
+		return false, 0, friendly
+	}
 
 	if apierr.StatusCode != 429 && apierr.StatusCode != 500 {
 		return false, 0, err
@@ -360,6 +364,36 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 		}
 	}
 	return true, int64(retryMs), nil
+}
+
+func torveGatewayError(apierr *openai.Error) error {
+	code := strings.ToLower(strings.TrimSpace(apierr.Code))
+	retryHint := ""
+	if apierr.Response != nil {
+		if after := strings.TrimSpace(apierr.Response.Header.Get("Retry-After")); after != "" {
+			retryHint = " Retry after " + after + " second(s)."
+		}
+	}
+	switch code {
+	case "rpm_limit_exceeded":
+		return errors.New("Torve plan request-per-minute (RPM) limit reached." + retryHint)
+	case "tpm_limit_exceeded":
+		return errors.New("Torve plan token-per-minute (TPM) limit reached. Shorten the conversation or attached documents." + retryHint)
+	case "concurrency_limit_exceeded":
+		return errors.New("Torve plan concurrent-request limit reached. Wait for another request to finish." + retryHint)
+	case "five_hour_limit_exceeded":
+		return errors.New("Torve five-hour allowance is exhausted." + retryHint)
+	case "monthly_limit_exceeded":
+		return errors.New("Torve monthly allowance and bonus balance are exhausted. Add balance or upgrade your plan in the dashboard." + retryHint)
+	case "insufficient_balance":
+		return errors.New("Torve balance is insufficient for this request. Add balance or purchase a plan at https://www.torveai.com/dashboard")
+	case "model_access_denied":
+		return errors.New("This model is not included in your Torve plan. Choose another model with /models.")
+	case "invalid_api_key", "revoked_api_key", "account_disabled":
+		return errors.New("Torve authentication is no longer valid. Run `torve auth login` to reconnect.")
+	default:
+		return nil
+	}
 }
 
 func (o *openaiClient) toolCalls(completion openai.ChatCompletion) []message.ToolCall {

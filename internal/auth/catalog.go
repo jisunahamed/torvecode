@@ -56,7 +56,7 @@ func RegisterModels(entries []CatalogModel) (models.ModelID, error) {
 		} else if item.Protocol != "openai" || item.Operation != "chat.completions" {
 			continue
 		}
-		converted = append(converted, models.Model{ID: models.ModelID(item.ID), Name: item.DisplayName, Provider: provider, APIModel: item.ID, ContextWindow: item.ContextWindow, DefaultMaxTokens: item.MaxOutputTokens})
+		converted = append(converted, models.Model{ID: models.ModelID(item.ID), Name: item.DisplayName, Provider: provider, APIModel: item.ID, ContextWindow: item.ContextWindow, DefaultMaxTokens: item.MaxOutputTokens, SupportsAttachments: true})
 	}
 	if len(converted) == 0 {
 		return "", fmt.Errorf("your account has no compatible chat models")

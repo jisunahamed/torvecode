@@ -1,6 +1,7 @@
 package dialog
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jisunahamed/torvecode/internal/app"
 	"github.com/jisunahamed/torvecode/internal/config"
+	"github.com/jisunahamed/torvecode/internal/documents"
 	"github.com/jisunahamed/torvecode/internal/logging"
 	"github.com/jisunahamed/torvecode/internal/message"
 	"github.com/jisunahamed/torvecode/internal/tui/image"
@@ -222,13 +224,33 @@ func (f *filepickerCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (f *filepickerCmp) addAttachmentToMessage() (tea.Model, tea.Cmd) {
+	selectedFilePath := f.selectedFile
+	if documents.Supported(selectedFilePath) {
+		if isFileLarge, err := image.ValidateFileSize(selectedFilePath, maxAttachmentSize); err != nil {
+			return f, util.ReportError(fmt.Errorf("cannot read document: %w", err))
+		} else if isFileLarge {
+			return f, util.ReportError(fmt.Errorf("document is larger than the 5 MB local conversion limit"))
+		}
+		f.selectedFile = ""
+		return f, func() tea.Msg {
+			markdown, err := documents.Convert(context.Background(), selectedFilePath)
+			if err != nil {
+				return util.InfoMsg{Type: util.InfoTypeError, Msg: err.Error()}
+			}
+			return AttachmentAddedMsg{Attachment: message.Attachment{
+				FilePath: selectedFilePath,
+				FileName: filepath.Base(selectedFilePath),
+				MimeType: "text/markdown",
+				Text:     markdown,
+			}}
+		}
+	}
 	modeInfo := GetSelectedModel(config.Get())
 	if !modeInfo.SupportsAttachments {
 		logging.ErrorPersist(fmt.Sprintf("Model %s doesn't support attachments", modeInfo.Name))
 		return f, nil
 	}
 
-	selectedFilePath := f.selectedFile
 	if !isExtSupported(selectedFilePath) {
 		logging.ErrorPersist("Unsupported file")
 		return f, nil
@@ -392,7 +414,7 @@ func (f *filepickerCmp) getCurrentFileBelowCursor() {
 
 	dir := f.dirs[f.cursor]
 	filename := dir.Name()
-	if !dir.IsDir() && isExtSupported(filename) {
+	if !dir.IsDir() && isImageExtSupported(filename) {
 		fullPath := f.cwdDetails.directory + "/" + dir.Name()
 
 		go func() {
@@ -405,6 +427,8 @@ func (f *filepickerCmp) getCurrentFileBelowCursor() {
 
 			f.viewport.SetContent(imageString)
 		}()
+	} else if !dir.IsDir() && documents.Supported(filename) {
+		f.viewport.SetContent("Document\n\nPress enter to convert it locally with Microsoft MarkItDown.")
 	} else {
 		f.viewport.SetContent("Preview unavailable")
 	}
@@ -466,6 +490,10 @@ func IsHidden(file string) (bool, error) {
 }
 
 func isExtSupported(path string) bool {
+	return documents.Supported(path) || isImageExtSupported(path)
+}
+
+func isImageExtSupported(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
-	return (ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || ext == ".png")
+	return ext == ".jpg" || ext == ".jpeg" || ext == ".webp" || ext == ".png"
 }
