@@ -27,6 +27,15 @@ read tool. Skills do not grant tool permissions. After adding a skill, start a
 new session so the agent receives the updated inventory. Edit SKILL.md directly
 to change it; remove its directory to uninstall it.
 
+## Slash command palette
+
+Press `/` in an empty chat prompt to open the Torve command palette. Continue
+typing to filter commands, use the arrow keys to move, and press Enter to run.
+The palette includes account connection, models, sessions, new session, themes,
+external editor, help, skills, MCP status, workspace status, code review, logs,
+project initialization and context compaction. `Ctrl+K` remains available as a
+second way to open the same palette. A slash typed inside a message remains text.
+
 ## Feature inventory
 
 Implemented in source: sessions/history, streaming chat, file editing, diff,

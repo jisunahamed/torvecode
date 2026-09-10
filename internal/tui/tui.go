@@ -303,6 +303,13 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.showCommandDialog = false
 		return a, nil
 
+	case dialog.OpenCommandDialogMsg:
+		if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions {
+			a.commandDialog.SetCommands(a.commands)
+			a.showCommandDialog = true
+		}
+		return a, nil
+
 	case startCompactSessionMsg:
 		// Start compacting the current session
 		a.isCompacting = true
@@ -922,8 +929,106 @@ func New(app *app.App) tea.Model {
 	}
 
 	model.RegisterCommand(dialog.Command{
+		ID:          "connect",
+		Title:       "/connect",
+		Description: "View Torve account connection",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.ReportInfo("Connected to Torve AI. Use `torve auth status` or `torve auth login` from your shell to manage authentication.")
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "models",
+		Title:       "/models",
+		Description: "Switch Torve model",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlO})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "sessions",
+		Title:       "/sessions",
+		Description: "Open session history",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlS})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "new",
+		Title:       "/new",
+		Description: "Start a new session",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlN})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "themes",
+		Title:       "/themes",
+		Description: "Switch terminal theme",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlT})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "editor",
+		Title:       "/editor",
+		Description: "Compose in your editor",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlE})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "help",
+		Title:       "/help",
+		Description: "Show shortcuts and help",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlH})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "skills",
+		Title:       "/skills",
+		Description: "Create and manage agent skills",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.ReportInfo("Skills: torve skills list | torve skills create <name> | torve skills add <name> <SKILL.md>")
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "mcps",
+		Title:       "/mcps",
+		Description: "View configured MCP servers",
+		Handler: func(dialog.Command) tea.Cmd {
+			count := len(config.Get().MCPServers)
+			return util.ReportInfo(fmt.Sprintf("%d MCP server(s) configured in .torvecode.json", count))
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "status",
+		Title:       "/status",
+		Description: "View workspace status",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.ReportInfo(fmt.Sprintf("Model: %s | Workspace: %s", app.CoderAgent.Model().Name, config.WorkingDirectory()))
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "review",
+		Title:       "/review",
+		Description: "Review uncommitted changes",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(chat.SendMsg{Text: "Review the uncommitted changes in this repository. Focus on bugs, regressions, security issues, and missing tests. Report findings by severity."})
+		},
+	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "logs",
+		Title:       "/logs",
+		Description: "Open diagnostic logs",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlL})
+		},
+	})
+
+	model.RegisterCommand(dialog.Command{
 		ID:          "init",
-		Title:       "Initialize Project",
+		Title:       "/init",
 		Description: "Create/Update the Torvecode.md memory file",
 		Handler: func(cmd dialog.Command) tea.Cmd {
 			prompt := `Please analyze this codebase and create a Torvecode.md file containing:
@@ -943,7 +1048,7 @@ If there are Cursor rules (in .cursor/rules/ or .cursorrules) or Copilot rules (
 
 	model.RegisterCommand(dialog.Command{
 		ID:          "compact",
-		Title:       "Compact Session",
+		Title:       "/compact",
 		Description: "Summarize the current session and create a new one with the summary",
 		Handler: func(cmd dialog.Command) tea.Cmd {
 			return func() tea.Msg {

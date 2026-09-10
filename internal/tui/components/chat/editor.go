@@ -163,6 +163,9 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.attachments = append(m.attachments, msg.Attachment)
 	case tea.KeyMsg:
+		if m.textarea.Focused() && m.textarea.Value() == "" && msg.String() == "/" {
+			return m, util.CmdHandler(dialog.OpenCommandDialogMsg{})
+		}
 		if key.Matches(msg, DeleteKeyMaps.AttachmentDeleteMode) {
 			m.deleteMode = true
 			return m, nil

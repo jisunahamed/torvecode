@@ -1,6 +1,8 @@
 package dialog
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,10 +25,10 @@ func (ci Command) Render(selected bool, width int) string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
 
-	descStyle := baseStyle.Width(width).Foreground(t.TextMuted())
-	itemStyle := baseStyle.Width(width).
+	itemStyle := baseStyle.
 		Foreground(t.Text()).
 		Background(t.Background())
+	descStyle := itemStyle.Foreground(t.TextMuted())
 
 	if selected {
 		itemStyle = itemStyle.
@@ -38,12 +40,10 @@ func (ci Command) Render(selected bool, width int) string {
 			Foreground(t.Background())
 	}
 
-	title := itemStyle.Padding(0, 1).Render(ci.Title)
-	if ci.Description != "" {
-		description := descStyle.Padding(0, 1).Render(ci.Description)
-		return lipgloss.JoinVertical(lipgloss.Left, title, description)
-	}
-	return title
+	titleWidth := min(18, max(10, width/3))
+	title := itemStyle.PaddingLeft(1).Width(titleWidth).Render(ci.Title)
+	description := descStyle.PaddingRight(1).Width(max(1, width-titleWidth)).Render(ci.Description)
+	return lipgloss.JoinHorizontal(lipgloss.Top, title, description)
 }
 
 // CommandSelectedMsg is sent when a command is selected
@@ -54,6 +54,9 @@ type CommandSelectedMsg struct {
 // CloseCommandDialogMsg is sent when the command dialog is closed
 type CloseCommandDialogMsg struct{}
 
+// OpenCommandDialogMsg opens the command palette from an empty chat prompt.
+type OpenCommandDialogMsg struct{}
+
 // CommandDialog interface for the command selection dialog
 type CommandDialog interface {
 	tea.Model
@@ -63,6 +66,8 @@ type CommandDialog interface {
 
 type commandDialogCmp struct {
 	listView utilComponents.SimpleList[Command]
+	commands []Command
+	query    string
 	width    int
 	height   int
 }
@@ -100,7 +105,18 @@ func (c *commandDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 			}
 		case key.Matches(msg, commandKeys.Escape):
+			c.query = ""
 			return c, util.CmdHandler(CloseCommandDialogMsg{})
+		case msg.Type == tea.KeyBackspace:
+			if c.query != "" {
+				c.query = strings.TrimSuffix(c.query, string([]rune(c.query)[len([]rune(c.query))-1]))
+				c.filter()
+			}
+			return c, nil
+		case len(msg.Runes) > 0:
+			c.query += string(msg.Runes)
+			c.filter()
+			return c, nil
 		}
 	case tea.WindowSizeMsg:
 		c.width = msg.Width
@@ -140,7 +156,7 @@ func (c *commandDialogCmp) View() string {
 		Bold(true).
 		Width(maxWidth).
 		Padding(0, 1).
-		Render("Commands")
+		Render("/" + c.query)
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -163,7 +179,20 @@ func (c *commandDialogCmp) BindingKeys() []key.Binding {
 }
 
 func (c *commandDialogCmp) SetCommands(commands []Command) {
-	c.listView.SetItems(commands)
+	c.commands = commands
+	c.query = ""
+	c.filter()
+}
+
+func (c *commandDialogCmp) filter() {
+	query := strings.ToLower(c.query)
+	filtered := make([]Command, 0, len(c.commands))
+	for _, command := range c.commands {
+		if query == "" || strings.Contains(strings.ToLower(command.Title+" "+command.Description), query) {
+			filtered = append(filtered, command)
+		}
+	}
+	c.listView.SetItems(filtered)
 }
 
 // NewCommandDialogCmp creates a new command selection dialog
@@ -172,7 +201,7 @@ func NewCommandDialogCmp() CommandDialog {
 		[]Command{},
 		10,
 		"No commands available",
-		true,
+		false,
 	)
 	return &commandDialogCmp{
 		listView: listView,
