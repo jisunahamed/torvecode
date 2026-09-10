@@ -1,17 +1,17 @@
 {
   "name": "@torveai/cli",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "Torve AI coding agent for the terminal",
   "license": "MIT",
   "bin": { "torve": "bin/torve.js" },
   "files": ["bin"],
   "engines": { "node": ">=18" },
   "optionalDependencies": {
-    "@torveai/cli-darwin-arm64": "0.1.0-beta.3",
-    "@torveai/cli-darwin-x64": "0.1.0-beta.3",
-    "@torveai/cli-linux-arm64": "0.1.0-beta.3",
-    "@torveai/cli-linux-x64": "0.1.0-beta.3",
-    "@torveai/cli-win32-arm64": "0.1.0-beta.3",
-    "@torveai/cli-win32-x64": "0.1.0-beta.3"
+    "@torveai/cli-darwin-arm64": "0.1.0-beta.4",
+    "@torveai/cli-darwin-x64": "0.1.0-beta.4",
+    "@torveai/cli-linux-arm64": "0.1.0-beta.4",
+    "@torveai/cli-linux-x64": "0.1.0-beta.4",
+    "@torveai/cli-win32-arm64": "0.1.0-beta.4",
+    "@torveai/cli-win32-x64": "0.1.0-beta.4"
   }
 }

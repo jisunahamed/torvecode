@@ -47,11 +47,11 @@ func FetchModels(ctx context.Context, credential Credential) ([]CatalogModel, er
 func RegisterModels(entries []CatalogModel) (models.ModelID, error) {
 	converted := make([]models.Model, 0, len(entries))
 	for _, item := range entries {
-		if !item.ToolUse {
-			continue
-		}
 		provider := models.ProviderTorve
 		if item.Protocol == "anthropic" && item.Operation == "messages" {
+			if !item.ToolUse {
+				continue
+			}
 			provider = models.ProviderTorveAnthropic
 		} else if item.Protocol != "openai" || item.Operation != "chat.completions" {
 			continue
@@ -59,7 +59,7 @@ func RegisterModels(entries []CatalogModel) (models.ModelID, error) {
 		converted = append(converted, models.Model{ID: models.ModelID(item.ID), Name: item.DisplayName, Provider: provider, APIModel: item.ID, ContextWindow: item.ContextWindow, DefaultMaxTokens: item.MaxOutputTokens})
 	}
 	if len(converted) == 0 {
-		return "", fmt.Errorf("your account has no tool-capable OpenAI-compatible models")
+		return "", fmt.Errorf("your account has no compatible chat models")
 	}
 	models.RegisterTorveModels(converted)
 	return converted[0].ID, nil
