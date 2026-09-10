@@ -315,17 +315,17 @@ func Execute() {
 func init() {
 	rootCmd.Flags().BoolP("help", "h", false, "Help")
 	rootCmd.Flags().BoolP("version", "v", false, "Version")
-	rootCmd.Flags().BoolP("debug", "d", false, "Debug")
-	rootCmd.Flags().StringP("cwd", "c", "", "Current working directory")
-	rootCmd.Flags().StringP("prompt", "p", "", "Prompt to run in non-interactive mode")
+	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Debug")
+	rootCmd.PersistentFlags().StringP("cwd", "c", "", "Current working directory")
+	rootCmd.PersistentFlags().StringP("prompt", "p", "", "Prompt to run in non-interactive mode")
 
 	// Add format flag with validation logic
-	rootCmd.Flags().StringP("output-format", "f", format.Text.String(),
+	rootCmd.PersistentFlags().StringP("output-format", "f", format.Text.String(),
 		"Output format for non-interactive mode (text, json)")
 
 	// Add quiet flag to hide spinner in non-interactive mode
-	rootCmd.Flags().BoolP("quiet", "q", false, "Hide spinner in non-interactive mode")
-	rootCmd.Flags().Bool("allow-tools", false, "Allow file and shell tools in non-interactive mode")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Hide spinner in non-interactive mode")
+	rootCmd.PersistentFlags().Bool("allow-tools", false, "Allow file and shell tools in non-interactive mode")
 
 	// Register custom validation for the format flag
 	rootCmd.RegisterFlagCompletionFunc("output-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
