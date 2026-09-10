@@ -1,8 +1,49 @@
 package auth
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"testing"
+	"time"
 
-import "github.com/jisunahamed/torvecode/internal/llm/models"
+	"github.com/jisunahamed/torvecode/internal/llm/models"
+)
+
+func TestCatalogCacheIsScopedToCredentialAndExpires(t *testing.T) {
+	t.Setenv("LOCALAPPDATA", t.TempDir())
+	credential := Credential{AccessToken: "token-a"}
+	entries := []CatalogModel{{ID: "model-a", Protocol: "openai", Operation: "chat.completions"}}
+	if err := saveCatalogCache(credential, entries); err != nil {
+		t.Fatal(err)
+	}
+	loaded, ok := loadCatalogCache(credential)
+	if !ok || len(loaded) != 1 || loaded[0].ID != "model-a" {
+		t.Fatalf("loadCatalogCache() = %#v, %v", loaded, ok)
+	}
+	if _, ok := loadCatalogCache(Credential{AccessToken: "token-b"}); ok {
+		t.Fatal("cache was reused for another credential")
+	}
+	path, err := catalogCachePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cache catalogCache
+	if err := json.Unmarshal(payload, &cache); err != nil {
+		t.Fatal(err)
+	}
+	cache.FetchedAt = time.Now().Add(-catalogCacheTTL - time.Minute)
+	payload, _ = json.Marshal(cache)
+	if err := os.WriteFile(path, payload, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loadCatalogCache(credential); ok {
+		t.Fatal("expired cache was reused")
+	}
+}
 
 func TestRegisterModelsAcceptsOpenAIChatCompatibilityWithoutToolFlag(t *testing.T) {
 	first, err := RegisterModels([]CatalogModel{{

@@ -2,13 +2,18 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/jisunahamed/torvecode/internal/llm/models"
 )
+
+const catalogCacheTTL = 10 * time.Minute
 
 type CatalogModel struct {
 	ID              string `json:"id"`
@@ -41,7 +46,72 @@ func FetchModels(ctx context.Context, credential Credential) ([]CatalogModel, er
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return nil, err
 	}
+	_ = saveCatalogCache(credential, envelope.Data)
 	return envelope.Data, nil
+}
+
+// FetchModelsCached keeps repeat interactive launches off the network. The cache
+// is scoped to the active credential and short lived; explicit catalog commands
+// still use FetchModels and refresh it.
+func FetchModelsCached(ctx context.Context, credential Credential) ([]CatalogModel, error) {
+	if entries, ok := loadCatalogCache(credential); ok {
+		return entries, nil
+	}
+	return FetchModels(ctx, credential)
+}
+
+type catalogCache struct {
+	Credential string         `json:"credential"`
+	FetchedAt  time.Time      `json:"fetched_at"`
+	Models     []CatalogModel `json:"models"`
+}
+
+func catalogCredentialID(credential Credential) string {
+	sum := sha256.Sum256([]byte(credential.AccessToken))
+	return fmt.Sprintf("%x", sum[:8])
+}
+
+func catalogCachePath() (string, error) {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir = filepath.Join(dir, "torvecode")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "models.json"), nil
+}
+
+func loadCatalogCache(credential Credential) ([]CatalogModel, bool) {
+	path, err := catalogCachePath()
+	if err != nil {
+		return nil, false
+	}
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	var cache catalogCache
+	if json.Unmarshal(payload, &cache) != nil || cache.Credential != catalogCredentialID(credential) || time.Since(cache.FetchedAt) > catalogCacheTTL || len(cache.Models) == 0 {
+		return nil, false
+	}
+	return cache.Models, true
+}
+
+func saveCatalogCache(credential Credential, entries []CatalogModel) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	path, err := catalogCachePath()
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(catalogCache{Credential: catalogCredentialID(credential), FetchedAt: time.Now().UTC(), Models: entries})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, payload, 0600)
 }
 
 func RegisterModels(entries []CatalogModel) (models.ModelID, error) {

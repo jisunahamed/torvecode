@@ -70,7 +70,7 @@ to assist developers in writing, debugging, and understanding code directly from
 				return err
 			}
 		}
-		catalog, err := auth.FetchModels(cmd.Context(), credential)
+		catalog, err := auth.FetchModelsCached(cmd.Context(), credential)
 		if err != nil {
 			return fmt.Errorf("authenticate Torve AI: %w", err)
 		}
