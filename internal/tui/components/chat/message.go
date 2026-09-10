@@ -59,9 +59,9 @@ func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...s
 	}
 
 	// Apply markdown formatting and handle background color
-	parts := []string{
-		styles.ForceReplaceBackgroundWithLipgloss(toMarkdown(msg, isFocused, width), t.Background()),
-	}
+	messageWidth := max(1, width-3)
+	markdown := styles.ForceReplaceBackgroundWithLipgloss(toMarkdown(msg, isFocused, messageWidth), t.Background())
+	parts := []string{ansi.Hardwrap(markdown, messageWidth, true)}
 
 	// Remove newline at the end
 	parts[0] = strings.TrimSuffix(parts[0], "\n")
@@ -126,7 +126,6 @@ func renderAssistantMessage(
 ) []uiMessage {
 	messages := []uiMessage{}
 	content := msg.Content().String()
-	thinking := msg.IsThinking()
 	thinkingContent := msg.ReasoningContent().Thinking
 	finished := msg.IsFinished()
 	finishData := msg.FinishPart()
@@ -171,6 +170,17 @@ func renderAssistantMessage(
 			)
 		}
 	}
+	if thinkingContent != "" {
+		thought := renderMessage("**Thinking**\n\n"+truncateHeight(thinkingContent, 8), false, msg.ID == focusedUIMessageId, width)
+		messages = append(messages, uiMessage{
+			ID:          msg.ID + "-thinking",
+			messageType: assistantMessageType,
+			position:    position,
+			height:      lipgloss.Height(thought),
+			content:     thought,
+		})
+		position += lipgloss.Height(thought) + 1
+	}
 	if content != "" || (finished && finishData.Reason == message.FinishReasonEndTurn) {
 		if content == "" {
 			content = "*Finished without output*"
@@ -187,11 +197,8 @@ func renderAssistantMessage(
 			height:      lipgloss.Height(content),
 			content:     content,
 		})
-		position += messages[0].height
+		position += lipgloss.Height(content)
 		position++ // for the space
-	} else if thinking && thinkingContent != "" {
-		// Render the thinking content
-		content = renderMessage(thinkingContent, false, msg.ID == focusedUIMessageId, width)
 	}
 
 	for i, toolCall := range msg.ToolCalls() {
@@ -241,7 +248,7 @@ func toolName(name string) string {
 	case tools.SourcegraphToolName:
 		return "Sourcegraph"
 	case tools.ViewToolName:
-		return "View"
+		return "Read"
 	case tools.WriteToolName:
 		return "Write"
 	case tools.PatchToolName:

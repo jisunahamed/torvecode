@@ -456,7 +456,11 @@ func (a *agent) processEvent(ctx context.Context, sessionID string, assistantMsg
 
 	switch event.Type {
 	case provider.EventThinkingDelta:
-		assistantMsg.AppendReasoningContent(event.Content)
+		thinking := event.Thinking
+		if thinking == "" {
+			thinking = event.Content
+		}
+		assistantMsg.AppendReasoningContent(thinking)
 		return a.messages.Update(ctx, *assistantMsg)
 	case provider.EventContentDelta:
 		assistantMsg.AppendContent(event.Content)

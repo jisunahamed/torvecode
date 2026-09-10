@@ -112,6 +112,10 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport = u
 			cmds = append(cmds, cmd)
 		}
+	case tea.MouseMsg:
+		u, cmd := m.viewport.Update(msg)
+		m.viewport = u
+		cmds = append(cmds, cmd)
 
 	case renderFinishedMsg:
 		m.rendering = false
@@ -125,6 +129,7 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case pubsub.Event[message.Message]:
+		wasAtBottom := m.viewport.AtBottom()
 		needsRerender := false
 		if msg.Type == pubsub.CreatedEvent {
 			if msg.Payload.SessionID == m.session.ID {
@@ -171,8 +176,8 @@ func (m *messagesCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if needsRerender {
 			m.renderView()
 			if len(m.messages) > 0 {
-				if (msg.Type == pubsub.CreatedEvent) ||
-					(msg.Type == pubsub.UpdatedEvent && msg.Payload.ID == m.messages[len(m.messages)-1].ID) {
+				if msg.Type == pubsub.CreatedEvent ||
+					(msg.Type == pubsub.UpdatedEvent && msg.Payload.ID == m.messages[len(m.messages)-1].ID && wasAtBottom) {
 					m.viewport.GotoBottom()
 				}
 			}
@@ -267,16 +272,18 @@ func (m *messagesCmp) renderView() {
 		)
 	}
 
-	m.viewport.SetContent(
-		baseStyle.
-			Width(m.width).
-			Render(
-				lipgloss.JoinVertical(
-					lipgloss.Top,
-					messages...,
-				),
+	content := baseStyle.
+		Width(m.width).
+		Render(
+			lipgloss.JoinVertical(
+				lipgloss.Top,
+				messages...,
 			),
-	)
+		)
+	if missing := m.viewport.Height - lipgloss.Height(content); missing > 0 {
+		content = strings.Repeat("\n", missing) + content
+	}
+	m.viewport.SetContent(content)
 }
 
 func (m *messagesCmp) View() string {
@@ -545,6 +552,8 @@ func NewMessagesCmp(app *app.App) tea.Model {
 	s := spinner.New()
 	s.Spinner = spinner.Pulse
 	vp := viewport.New(0, 0)
+	vp.MouseWheelEnabled = true
+	vp.MouseWheelDelta = 3
 	attachmets := viewport.New(0, 0)
 	vp.KeyMap.PageUp = messageKeys.PageUp
 	vp.KeyMap.PageDown = messageKeys.PageDown

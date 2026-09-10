@@ -207,7 +207,7 @@ func (o *openaiClient) send(ctx context.Context, messages []message.Message, too
 				return nil, retryErr
 			}
 			if retry {
-				logging.WarnPersist(fmt.Sprintf("Retrying due to rate limit... attempt %d of %d", attempts, maxRetries), logging.PersistTimeArg, time.Millisecond*time.Duration(after+100))
+				logging.WarnPersist(fmt.Sprintf("Temporary provider error; retrying... attempt %d of %d", attempts, maxRetries), logging.PersistTimeArg, time.Millisecond*time.Duration(after+100))
 				select {
 				case <-ctx.Done():
 					return nil, ctx.Err()
@@ -276,8 +276,8 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 				for _, choice := range chunk.Choices {
 					if reasoning := extractReasoning(choice.Delta.RawJSON()); reasoning != "" {
 						eventChan <- ProviderEvent{
-							Type:    EventThinkingDelta,
-							Content: reasoning,
+							Type:     EventThinkingDelta,
+							Thinking: reasoning,
 						}
 					}
 					if choice.Delta.Content != "" {
@@ -322,7 +322,7 @@ func (o *openaiClient) stream(ctx context.Context, messages []message.Message, t
 				return
 			}
 			if retry {
-				logging.WarnPersist(fmt.Sprintf("Retrying due to rate limit... attempt %d of %d", attempts, maxRetries), logging.PersistTimeArg, time.Millisecond*time.Duration(after+100))
+				logging.WarnPersist(fmt.Sprintf("Temporary provider error; retrying... attempt %d of %d", attempts, maxRetries), logging.PersistTimeArg, time.Millisecond*time.Duration(after+100))
 				select {
 				case <-ctx.Done():
 					// context cancelled
@@ -370,12 +370,12 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 		return false, 0, friendly
 	}
 
-	if apierr.StatusCode != 429 && apierr.StatusCode != 500 {
+	if apierr.StatusCode != 429 && apierr.StatusCode != 500 && apierr.StatusCode != 502 && apierr.StatusCode != 503 && apierr.StatusCode != 504 && apierr.StatusCode != 529 {
 		return false, 0, err
 	}
 
 	if attempts > maxRetries {
-		return false, 0, fmt.Errorf("maximum retry attempts reached for rate limit: %d retries", maxRetries)
+		return false, 0, fmt.Errorf("temporary provider error persisted after %d retries", maxRetries)
 	}
 
 	retryMs := 0
@@ -388,6 +388,9 @@ func (o *openaiClient) shouldRetry(attempts int, err error) (bool, int64, error)
 		if _, err := fmt.Sscanf(retryAfterValues[0], "%d", &retryMs); err == nil {
 			retryMs = retryMs * 1000
 		}
+	}
+	if retryMs > 30000 {
+		retryMs = 30000
 	}
 	return true, int64(retryMs), nil
 }

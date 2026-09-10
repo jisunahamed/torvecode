@@ -55,3 +55,20 @@ func TestExtractReasoningSupportsCompatibleFields(t *testing.T) {
 		t.Fatalf("reasoning = %q", got)
 	}
 }
+
+func TestTransientGatewayErrorsRetryUpToTenTimes(t *testing.T) {
+	client := &openaiClient{}
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		retry, wait, err := client.shouldRetry(attempt, &openai.Error{StatusCode: http.StatusServiceUnavailable, Response: &http.Response{Header: http.Header{}}})
+		if !retry || err != nil {
+			t.Fatalf("attempt %d: retry=%t wait=%d error=%v", attempt, retry, wait, err)
+		}
+		if wait > 30000 {
+			t.Fatalf("attempt %d: wait=%d exceeds 30 second cap", attempt, wait)
+		}
+	}
+	retry, _, err := client.shouldRetry(maxRetries+1, &openai.Error{StatusCode: http.StatusServiceUnavailable, Response: &http.Response{Header: http.Header{}}})
+	if retry || err == nil {
+		t.Fatalf("attempt after limit: retry=%t error=%v", retry, err)
+	}
+}

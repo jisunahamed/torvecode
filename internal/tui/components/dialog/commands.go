@@ -111,8 +111,13 @@ func (c *commandDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if c.query != "" {
 				c.query = strings.TrimSuffix(c.query, string([]rune(c.query)[len([]rune(c.query))-1]))
 				c.filter()
+			} else {
+				return c, util.CmdHandler(CloseCommandDialogMsg{})
 			}
 			return c, nil
+		case msg.String() == "/":
+			c.query = ""
+			return c, util.CmdHandler(CloseCommandDialogMsg{})
 		case len(msg.Runes) > 0:
 			c.query += string(msg.Runes)
 			c.filter()
@@ -163,6 +168,7 @@ func (c *commandDialogCmp) View() string {
 		title,
 		baseStyle.Width(maxWidth).Render(""),
 		baseStyle.Width(maxWidth).Render(c.listView.View()),
+		baseStyle.Width(maxWidth).Foreground(t.TextMuted()).Render("↑/↓ navigate  enter select  esc close"),
 		baseStyle.Width(maxWidth).Render(""),
 	)
 
