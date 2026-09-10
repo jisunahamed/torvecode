@@ -222,14 +222,11 @@ func DeviceName() string {
 func storeSecure(payload string) error {
 	switch runtime.GOOS {
 	case "windows":
-		script := `$b=[Text.Encoding]::UTF8.GetBytes($env:TORVE_SECRET);$e=[Security.Cryptography.ProtectedData]::Protect($b,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);[IO.File]::WriteAllBytes($env:TORVE_SECRET_FILE,$e)`
 		path, err := secretPath()
 		if err != nil {
 			return err
 		}
-		cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
-		cmd.Env = append(os.Environ(), "TORVE_SECRET="+payload, "TORVE_SECRET_FILE="+path)
-		return cmd.Run()
+		return protectWindowsCredential(payload, path)
 	case "darwin":
 		return exec.Command("security", "add-generic-password", "-U", "-s", serviceName, "-a", accountName, "-w", payload).Run()
 	default:
@@ -248,10 +245,7 @@ func loadSecure() (Credential, error) {
 		if pathErr != nil {
 			return Credential{}, pathErr
 		}
-		script := `$e=[IO.File]::ReadAllBytes($env:TORVE_SECRET_FILE);$b=[Security.Cryptography.ProtectedData]::Unprotect($e,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser);[Text.Encoding]::UTF8.GetString($b)`
-		cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
-		cmd.Env = append(os.Environ(), "TORVE_SECRET_FILE="+path)
-		output, err = cmd.Output()
+		output, err = unprotectWindowsCredential(path)
 	case "darwin":
 		output, err = exec.Command("security", "find-generic-password", "-s", serviceName, "-a", accountName, "-w").Output()
 	default:
@@ -265,6 +259,27 @@ func loadSecure() (Credential, error) {
 		return Credential{}, err
 	}
 	return result, nil
+}
+
+func protectWindowsCredential(payload, path string) error {
+	script := `$ErrorActionPreference='Stop';Add-Type -AssemblyName System.Security;$b=[Text.Encoding]::UTF8.GetBytes($env:TORVE_SECRET);$e=[System.Security.Cryptography.ProtectedData]::Protect($b,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[IO.File]::WriteAllBytes($env:TORVE_SECRET_FILE,$e)`
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd.Env = append(os.Environ(), "TORVE_SECRET="+payload, "TORVE_SECRET_FILE="+path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("Windows credential encryption failed: %s: %w", strings.TrimSpace(string(output)), err)
+	}
+	return nil
+}
+
+func unprotectWindowsCredential(path string) ([]byte, error) {
+	script := `$ErrorActionPreference='Stop';Add-Type -AssemblyName System.Security;$e=[IO.File]::ReadAllBytes($env:TORVE_SECRET_FILE);$b=[System.Security.Cryptography.ProtectedData]::Unprotect($e,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser);[Text.Encoding]::UTF8.GetString($b)`
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	cmd.Env = append(os.Environ(), "TORVE_SECRET_FILE="+path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("Windows credential decryption failed: %s: %w", strings.TrimSpace(string(output)), err)
+	}
+	return bytes.TrimSpace(output), nil
 }
 
 func deleteSecure() error {
