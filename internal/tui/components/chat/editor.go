@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -39,7 +39,7 @@ type editorCmp struct {
 type EditorKeyMaps struct {
 	Send       key.Binding
 	OpenEditor key.Binding
-	PasteImage key.Binding
+	Paste      key.Binding
 }
 
 type bluredEditorKeyMaps struct {
@@ -62,11 +62,16 @@ var editorMaps = EditorKeyMaps{
 		key.WithKeys("ctrl+e"),
 		key.WithHelp("ctrl+e", "open editor"),
 	),
-	PasteImage: key.NewBinding(
+	Paste: key.NewBinding(
 		key.WithKeys("ctrl+v"),
-		key.WithHelp("ctrl+v", "paste clipboard image"),
+		key.WithHelp("ctrl+v", "paste text or image"),
 	),
 }
+
+type clipboardTextMsg string
+
+var readClipboardText = clipboard.ReadAll
+var readClipboardImage = clipboardimage.Read
 
 var DeleteKeyMaps = DeleteAttachmentKeyMaps{
 	AttachmentDeleteMode: key.NewBinding(
@@ -148,12 +153,15 @@ func (m *editorCmp) send() tea.Cmd {
 	)
 }
 
-func (m *editorCmp) pasteClipboardImage() tea.Cmd {
-	if m.app == nil || !m.app.CoderAgent.Model().SupportsAttachments {
-		return util.ReportError(errors.New("the selected model does not support images; switch models and try again"))
-	}
+func (m *editorCmp) pasteClipboard() tea.Cmd {
 	return func() tea.Msg {
-		data, err := clipboardimage.Read(context.Background())
+		if text, err := readClipboardText(); err == nil && text != "" {
+			return clipboardTextMsg(text)
+		}
+		if m.app == nil || !m.app.CoderAgent.Model().SupportsAttachments {
+			return util.InfoMsg{Type: util.InfoTypeError, Msg: "the selected model does not support images; switch models and try again"}
+		}
+		data, err := readClipboardImage(context.Background())
 		if err != nil {
 			return util.InfoMsg{Type: util.InfoTypeError, Msg: err.Error()}
 		}
@@ -168,6 +176,9 @@ func (m *editorCmp) pasteClipboardImage() tea.Cmd {
 func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case clipboardTextMsg:
+		m.textarea.InsertString(string(msg))
+		return m, nil
 	case dialog.ThemeChangedMsg:
 		m.textarea = CreateTextArea(&m.textarea)
 	case dialog.CompletionSelectedMsg:
@@ -191,8 +202,8 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.textarea.Focused() && m.textarea.Value() == "" && msg.String() == "/" {
 			return m, util.CmdHandler(dialog.OpenCommandDialogMsg{})
 		}
-		if m.textarea.Focused() && key.Matches(msg, editorMaps.PasteImage) {
-			return m, m.pasteClipboardImage()
+		if m.textarea.Focused() && key.Matches(msg, editorMaps.Paste) {
+			return m, m.pasteClipboard()
 		}
 		if key.Matches(msg, DeleteKeyMaps.AttachmentDeleteMode) {
 			m.deleteMode = true

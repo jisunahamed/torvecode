@@ -42,7 +42,7 @@ torve run --allow-tools "..." non-interactive with tools enabled
 torve doctor                  diagnose installation and connectivity
 ```
 
-In the interactive UI, type `/` to search commands. Use `/image` or `Ctrl+F` to attach an image file, and `/paste-image` or `Ctrl+V` to attach an image copied to the system clipboard. Text paste continues to work normally.
+In the interactive UI, type `/` to search commands. Use `/image` or `Ctrl+F` to attach an image file. `Ctrl+V` automatically pastes clipboard text or attaches a copied image.
 
 The status bar shows the latest request's input and output tokens, effective context usage and cost when catalog pricing is available. Torvecode automatically compacts long sessions before the account's TPM budget becomes too small for a useful response; `/compact` remains available for manual control. Reasoning-capable OpenAI-compatible models show a live `Thinking...` state and accept streamed `reasoning_content` or `reasoning` events.
 

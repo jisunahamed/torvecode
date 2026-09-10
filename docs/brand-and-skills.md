@@ -38,11 +38,10 @@ second way to open the same palette. A slash typed inside a message remains text
 
 ## Images and documents
 
-Use `Ctrl+F` or `/image` to attach PNG, JPG or WebP files. Use `/paste-image` or
-`Ctrl+V` to read an image from the clipboard when the terminal passes that key
-to Torvecode. Windows works through its built-in PowerShell clipboard API;
-macOS requires `pngpaste`, and Linux uses `wl-paste` or `xclip`. Terminals that
-consume Ctrl+V for text paste can always use `/paste-image`.
+Use `Ctrl+F` or `/image` to attach PNG, JPG or WebP files. `Ctrl+V` detects the
+clipboard content: it inserts text into the prompt or attaches a copied image.
+Windows works through its built-in clipboard API; macOS requires `pngpaste`,
+and Linux uses `wl-paste` or `xclip` for images.
 
 Document attachments use Microsoft's MIT-licensed MarkItDown locally. Torvecode
 does not bundle Python because that would break the lightweight binary target.

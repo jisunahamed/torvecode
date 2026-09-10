@@ -52,7 +52,7 @@ var keys = keyMap{
 		key.WithHelp("ctrl+c", "quit"),
 	),
 	Help: key.NewBinding(
-		key.WithKeys("ctrl+_", "ctrl+h"),
+		key.WithKeys("ctrl+_"),
 		key.WithHelp("ctrl+?", "toggle help"),
 	),
 
@@ -989,19 +989,11 @@ func New(app *app.App) tea.Model {
 		},
 	})
 	model.RegisterCommand(dialog.Command{
-		ID:          "paste-image",
-		Title:       "/paste-image",
-		Description: "Attach an image from clipboard",
-		Handler: func(dialog.Command) tea.Cmd {
-			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlV})
-		},
-	})
-	model.RegisterCommand(dialog.Command{
 		ID:          "help",
 		Title:       "/help",
 		Description: "Show shortcuts and help",
 		Handler: func(dialog.Command) tea.Cmd {
-			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlH})
+			return util.CmdHandler(tea.KeyMsg{Type: tea.KeyCtrlUnderscore})
 		},
 	})
 	model.RegisterCommand(dialog.Command{

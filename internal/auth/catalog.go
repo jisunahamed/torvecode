@@ -14,7 +14,9 @@ import (
 	"github.com/jisunahamed/torvecode/internal/llm/models"
 )
 
-const catalogCacheTTL = 10 * time.Minute
+// A successful account catalog is stable enough to reuse between launches.
+// Explicit `torve models` requests still refresh it immediately.
+const catalogCacheTTL = 24 * time.Hour
 const catalogCacheVersion = 2
 
 type CatalogModel struct {
@@ -63,7 +65,7 @@ func FetchModels(ctx context.Context, credential Credential) ([]CatalogModel, er
 }
 
 // FetchModelsCached keeps repeat interactive launches off the network. The cache
-// is scoped to the active credential and short lived; explicit catalog commands
+// is scoped to the active credential and time limited; explicit catalog commands
 // still use FetchModels and refresh it.
 func FetchModelsCached(ctx context.Context, credential Credential) ([]CatalogModel, error) {
 	if entries, ok := loadCatalogCache(credential); ok {
