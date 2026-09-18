@@ -1030,6 +1030,14 @@ func New(app *app.App) tea.Model {
 		},
 	})
 	model.RegisterCommand(dialog.Command{
+		ID:          "update",
+		Title:       "/update",
+		Description: "Review, edit and install an update",
+		Handler: func(dialog.Command) tea.Cmd {
+			return util.ReportInfo("Exit this session, then run `torve update`. You can review changes, edit the version/channel, update or cancel before installation.")
+		},
+	})
+	model.RegisterCommand(dialog.Command{
 		ID:          "review",
 		Title:       "/review",
 		Description: "Review uncommitted changes",

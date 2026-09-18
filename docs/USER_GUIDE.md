@@ -6,4 +6,6 @@ For an API key, run `torve auth login --api-key`; input is hidden and the key is
 
 Run `torve` in a repository. File writes, shell commands and MCP tools request permission in interactive sessions. `torve run` denies tools unless `--allow-tools` is supplied. Use `torve models`, `torve doctor`, and `torve auth logout` for model discovery, diagnostics and disconnection.
 
-Upgrade through the same install channel. Uninstall npm builds with `npm uninstall -g @torveai/cli`; remove project history by deleting that project's `.torvecode` directory after reviewing it.
+For npm installations, run `torve update`. It shows the current and available versions and a release-changes link, then offers **Update**, **Edit target**, and **Cancel**. Edit the target to select `beta`, `latest`, or an exact version. Use `torve update --check` for a read-only check or `torve update --target VERSION --yes` for automation. Close other running Torvecode sessions before updating on Windows.
+
+Upgrade Homebrew, Go and direct-binary installations through the same channel used to install them. Uninstall npm builds with `npm uninstall -g @torveai/cli`; remove project history by deleting that project's `.torvecode` directory after reviewing it.

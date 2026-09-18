@@ -40,9 +40,13 @@ torve documents convert FILE  convert a document to Markdown
 torve run "PROMPT"            non-interactive; tools denied by default
 torve run --allow-tools "..." non-interactive with tools enabled
 torve doctor                  diagnose installation and connectivity
+torve update                  review, edit or install an npm update
+torve update --check          check the beta channel without installing
 ```
 
 In the interactive UI, type `/` to search commands. Use `/image` or `Ctrl+F` to attach an image file. `Ctrl+V` automatically pastes clipboard text or attaches a copied image.
+
+For npm installations, `torve update` shows the current and available versions plus the release changes link. Choose **Update**, **Edit target**, or **Cancel** before installation. Editing accepts a channel such as `beta` or `latest`, or an exact version. Because the npm launcher handles the update before starting `torve.exe`, Windows can replace the binary without locking the current process. Close any other Torvecode windows first.
 
 The status bar shows the latest request's input and output tokens, effective context usage and cost when catalog pricing is available. Torvecode automatically compacts long sessions before the account's TPM budget becomes too small for a useful response; `/compact` remains available for manual control. Reasoning-capable OpenAI-compatible models show a live `Thinking...` state and accept streamed `reasoning_content` or `reasoning` events.
 
