@@ -136,30 +136,41 @@ func (e *editTool) Run(ctx context.Context, call ToolCall) (ToolResponse, error)
 		params.FilePath = filepath.Join(wd, params.FilePath)
 	}
 
-	var response ToolResponse
-	var err error
-
 	if params.OldString == "" {
-		response, err = e.createNewFile(ctx, params.FilePath, params.NewString)
+		response, err := e.createNewFile(ctx, params.FilePath, params.NewString)
 		if err != nil {
 			return response, err
 		}
+		if response.IsError {
+			return response, nil
+		}
+		waitForLspDiagnostics(ctx, params.FilePath, e.lspClients)
+		text := fmt.Sprintf("<result>\n%s\n</result>\n", response.Content)
+		text += getDiagnostics(params.FilePath, e.lspClients)
+		response.Content = text
+		return response, nil
 	}
 
 	if params.NewString == "" {
-		response, err = e.deleteContent(ctx, params.FilePath, params.OldString)
+		response, err := e.deleteContent(ctx, params.FilePath, params.OldString)
 		if err != nil {
 			return response, err
 		}
+		if response.IsError {
+			return response, nil
+		}
+		waitForLspDiagnostics(ctx, params.FilePath, e.lspClients)
+		text := fmt.Sprintf("<result>\n%s\n</result>\n", response.Content)
+		text += getDiagnostics(params.FilePath, e.lspClients)
+		response.Content = text
+		return response, nil
 	}
 
-	response, err = e.replaceContent(ctx, params.FilePath, params.OldString, params.NewString)
+	response, err := e.replaceContent(ctx, params.FilePath, params.OldString, params.NewString)
 	if err != nil {
 		return response, err
 	}
 	if response.IsError {
-		// Return early if there was an error during content replacement
-		// This prevents unnecessary LSP diagnostics processing
 		return response, nil
 	}
 
@@ -223,17 +234,13 @@ func (e *editTool) createNewFile(ctx context.Context, filePath, content string) 
 		return ToolResponse{}, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	// File can't be in the history so we create a new file history
 	_, err = e.files.Create(ctx, sessionID, filePath, "")
 	if err != nil {
-		// Log error but don't fail the operation
 		return ToolResponse{}, fmt.Errorf("error creating file history: %w", err)
 	}
 
-	// Add the new content to the file history
 	_, err = e.files.CreateVersion(ctx, sessionID, filePath, content)
 	if err != nil {
-		// Log error but don't fail the operation
 		logging.Debug("Error creating file history version", "error", err)
 	}
 
@@ -334,23 +341,19 @@ func (e *editTool) deleteContent(ctx context.Context, filePath, oldString string
 		return ToolResponse{}, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	// Check if file exists in history
 	file, err := e.files.GetByPathAndSession(ctx, filePath, sessionID)
 	if err != nil {
 		_, err = e.files.Create(ctx, sessionID, filePath, oldContent)
 		if err != nil {
-			// Log error but don't fail the operation
 			return ToolResponse{}, fmt.Errorf("error creating file history: %w", err)
 		}
 	}
 	if file.Content != oldContent {
-		// User Manually changed the content store an intermediate version
 		_, err = e.files.CreateVersion(ctx, sessionID, filePath, oldContent)
 		if err != nil {
 			logging.Debug("Error creating file history version", "error", err)
 		}
 	}
-	// Store the new version
 	_, err = e.files.CreateVersion(ctx, sessionID, filePath, "")
 	if err != nil {
 		logging.Debug("Error creating file history version", "error", err)
@@ -454,23 +457,19 @@ func (e *editTool) replaceContent(ctx context.Context, filePath, oldString, newS
 		return ToolResponse{}, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	// Check if file exists in history
 	file, err := e.files.GetByPathAndSession(ctx, filePath, sessionID)
 	if err != nil {
 		_, err = e.files.Create(ctx, sessionID, filePath, oldContent)
 		if err != nil {
-			// Log error but don't fail the operation
 			return ToolResponse{}, fmt.Errorf("error creating file history: %w", err)
 		}
 	}
 	if file.Content != oldContent {
-		// User Manually changed the content store an intermediate version
 		_, err = e.files.CreateVersion(ctx, sessionID, filePath, oldContent)
 		if err != nil {
 			logging.Debug("Error creating file history version", "error", err)
 		}
 	}
-	// Store the new version
 	_, err = e.files.CreateVersion(ctx, sessionID, filePath, newContent)
 	if err != nil {
 		logging.Debug("Error creating file history version", "error", err)

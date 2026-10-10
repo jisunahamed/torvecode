@@ -1084,6 +1084,23 @@ If there are Cursor rules (in .cursor/rules/ or .cursorrules) or Copilot rules (
 			}
 		},
 	})
+	model.RegisterCommand(dialog.Command{
+		ID:          "plan",
+		Title:       "/plan",
+		Description: "Toggle plan mode (read-only)",
+		Handler: func(cmd dialog.Command) tea.Cmd {
+			current := config.GetPermissionMode()
+			next := config.PermissionModePlan
+			if current == config.PermissionModePlan {
+				next = config.PermissionModeDefault
+			}
+			_ = config.SetPermissionMode(next)
+			if app, ok := interface{}(nil).(interface{ SetMode(config.PermissionMode) }); ok {
+				_ = app
+			}
+			return util.ReportInfo("Permission mode: " + string(next))
+		},
+	})
 	// Load custom commands
 	customCommands, err := dialog.LoadCustomCommands()
 	if err != nil {

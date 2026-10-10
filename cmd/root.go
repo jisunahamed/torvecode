@@ -87,10 +87,22 @@ to assist developers in writing, debugging, and understanding code directly from
 		outputFormat, _ := cmd.Flags().GetString("output-format")
 		quiet, _ := cmd.Flags().GetBool("quiet")
 		allowTools, _ := cmd.Flags().GetBool("allow-tools")
+		permissionMode, _ := cmd.Flags().GetString("permission-mode")
+		dangerouslySkip, _ := cmd.Flags().GetBool("dangerously-skip-permissions")
+		if dangerouslySkip {
+			permissionMode = string(config.PermissionModeBypassPermissions)
+		}
 
 		// Validate format option
 		if !format.IsValid(outputFormat) {
 			return fmt.Errorf("invalid format option: %s\n%s", outputFormat, format.GetHelpText())
+		}
+		if permissionMode != "" {
+			switch config.PermissionMode(permissionMode) {
+			case config.PermissionModeDefault, config.PermissionModeAcceptEdits, config.PermissionModePlan, config.PermissionModeBypassPermissions:
+			default:
+				return fmt.Errorf("invalid permission-mode: %s (allowed: default, acceptEdits, plan, bypassPermissions)", permissionMode)
+			}
 		}
 
 		if cwd != "" {
@@ -109,6 +121,9 @@ to assist developers in writing, debugging, and understanding code directly from
 		_, err = config.Load(cwd, debug)
 		if err != nil {
 			return err
+		}
+		if permissionMode != "" {
+			_ = config.SetPermissionMode(config.PermissionMode(permissionMode))
 		}
 
 		// Connect DB, this will also run migrations
@@ -327,6 +342,8 @@ func init() {
 	// Add quiet flag to hide spinner in non-interactive mode
 	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Hide spinner in non-interactive mode")
 	rootCmd.PersistentFlags().Bool("allow-tools", false, "Allow file and shell tools in non-interactive mode")
+	rootCmd.PersistentFlags().String("permission-mode", "", "Permission mode: default, acceptEdits, plan, bypassPermissions")
+	rootCmd.PersistentFlags().Bool("dangerously-skip-permissions", false, "Bypass all permission checks (same as --permission-mode bypassPermissions)")
 
 	// Register custom validation for the format flag
 	rootCmd.RegisterFlagCompletionFunc("output-format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

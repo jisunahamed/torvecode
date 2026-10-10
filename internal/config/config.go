@@ -64,7 +64,7 @@ type Data struct {
 
 // LSPConfig defines configuration for Language Server Protocol integration.
 type LSPConfig struct {
-	Disabled bool     `json:"enabled"`
+	Disabled bool     `json:"disabled"`
 	Command  string   `json:"command"`
 	Args     []string `json:"args"`
 	Options  any      `json:"options"`
@@ -81,6 +81,44 @@ type ShellConfig struct {
 	Args []string `json:"args,omitempty"`
 }
 
+// PermissionMode controls how tool permissions are handled (mirrors Claude Code).
+type PermissionMode string
+
+const (
+	PermissionModeDefault           PermissionMode = "default"
+	PermissionModeAcceptEdits       PermissionMode = "acceptEdits"
+	PermissionModePlan              PermissionMode = "plan"
+	PermissionModeBypassPermissions PermissionMode = "bypassPermissions"
+)
+
+// PermissionsConfig holds permission mode and allow/deny lists.
+type PermissionsConfig struct {
+	Mode      PermissionMode `json:"mode,omitempty"`
+	AllowList []string       `json:"allow,omitempty"`
+	DenyList  []string       `json:"deny,omitempty"`
+	AskList   []string       `json:"ask,omitempty"`
+}
+
+// HookEvent names mirror Claude Code PreToolUse/PostToolUse/Stop.
+type HookEvent string
+
+const (
+	HookPreToolUse  HookEvent = "PreToolUse"
+	HookPostToolUse HookEvent = "PostToolUse"
+	HookStop        HookEvent = "Stop"
+	HookSessionStart HookEvent = "SessionStart"
+)
+
+// HookDef is a single hook entry.
+type HookDef struct {
+	Command string `json:"command"`
+	Timeout int    `json:"timeout,omitempty"` // seconds, default 30
+	Matcher string `json:"matcher,omitempty"` // regex on tool name, empty = all
+}
+
+// HooksConfig maps event -> hook list.
+type HooksConfig map[HookEvent][]HookDef
+
 // Config is the main configuration structure for the application.
 type Config struct {
 	Data         Data                              `json:"data"`
@@ -95,6 +133,8 @@ type Config struct {
 	TUI          TUIConfig                         `json:"tui"`
 	Shell        ShellConfig                       `json:"shell,omitempty"`
 	AutoCompact  bool                              `json:"autoCompact,omitempty"`
+	Permissions  PermissionsConfig                 `json:"permissions,omitempty"`
+	Hooks        HooksConfig                       `json:"hooks,omitempty"`
 }
 
 // Application constants
@@ -231,8 +271,9 @@ func configureViper() {
 func setDefaults(debug bool) {
 	viper.SetDefault("data.directory", defaultDataDirectory)
 	viper.SetDefault("contextPaths", defaultContextPaths)
-	viper.SetDefault("tui.theme", "torvecode")
+	viper.SetDefault("tui.theme", "torve-amber")
 	viper.SetDefault("autoCompact", true)
+	viper.SetDefault("permissions.mode", string(PermissionModeDefault))
 
 	// Set default shell from environment or fallback to /bin/bash
 	shellPath := os.Getenv("SHELL")
@@ -974,6 +1015,40 @@ func UpdateTheme(themeName string) error {
 	// Update the file config
 	return updateCfgFile(func(config *Config) {
 		config.TUI.Theme = themeName
+	})
+}
+
+// PermissionMode helpers
+
+func GetPermissionMode() PermissionMode {
+	if v := os.Getenv("TORVE_PERMISSION_MODE"); v != "" {
+		switch PermissionMode(v) {
+		case PermissionModeDefault, PermissionModeAcceptEdits, PermissionModePlan, PermissionModeBypassPermissions:
+			return PermissionMode(v)
+		}
+	}
+	if cfg != nil && cfg.Permissions.Mode != "" {
+		return cfg.Permissions.Mode
+	}
+	return PermissionModeDefault
+}
+
+func IsReadOnlyTool(name string) bool {
+	switch name {
+	case "glob", "grep", "view", "ls", "diagnostics", "sourcegraph", "fetch":
+		return true
+	default:
+		return false
+	}
+}
+
+func SetPermissionMode(mode PermissionMode) error {
+	if cfg == nil {
+		return fmt.Errorf("config not loaded")
+	}
+	cfg.Permissions.Mode = mode
+	return updateCfgFile(func(c *Config) {
+		c.Permissions.Mode = mode
 	})
 }
 

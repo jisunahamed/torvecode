@@ -46,3 +46,7 @@ Thumbs.db
 
 opencode
 opencode.md
+
+# Torvecode local binaries (do not commit built exes)
+.codex-torve-*.exe
+.codex-torve-*.exe~

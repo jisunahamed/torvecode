@@ -20,8 +20,12 @@ func CoderPrompt(provider models.ModelProvider) string {
 		basePrompt = baseOpenAICoderPrompt
 	}
 	envInfo := getEnvironmentInfo()
+	planExtra := ""
+	if config.GetPermissionMode() == config.PermissionModePlan {
+		planExtra = "\n\n# PLAN MODE — read-only\nYou are in plan mode. You MUST NOT make edits, writes, or run mutating bash commands. Search, read, and propose a plan. Ask the user to approve before any implementation."
+	}
 
-	return fmt.Sprintf("%s\n\n%s\n%s", basePrompt, envInfo, lspInformation())
+	return fmt.Sprintf("%s\n\n%s%s\n%s", basePrompt, envInfo, planExtra, lspInformation())
 }
 
 const baseOpenAICoderPrompt = `

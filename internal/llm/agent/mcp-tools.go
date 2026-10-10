@@ -170,7 +170,11 @@ func GetMcpTools(ctx context.Context, permissions permission.Service) []tools.Ba
 	if len(mcpTools) > 0 {
 		return mcpTools
 	}
-	for name, m := range config.Get().MCPServers {
+	cfg := config.Get()
+	if cfg == nil {
+		return nil
+	}
+	for name, m := range cfg.MCPServers {
 		switch m.Type {
 		case config.MCPStdio:
 			c, err := client.NewStdioMCPClient(

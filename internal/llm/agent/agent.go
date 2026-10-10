@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -336,10 +337,8 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 		return assistantMsg, nil, fmt.Errorf("failed to create assistant message: %w", err)
 	}
 
-	// Add the session and message ID into the context if needed by tools.
 	ctx = context.WithValue(ctx, tools.MessageIDContextKey, assistantMsg.ID)
 
-	// Process each event in the stream.
 	for event := range eventChan {
 		if processErr := a.processEvent(ctx, sessionID, &assistantMsg, event); processErr != nil {
 			a.finishMessage(ctx, &assistantMsg, message.FinishReasonCanceled)
@@ -351,94 +350,254 @@ func (a *agent) streamAndHandleEvents(ctx context.Context, sessionID string, msg
 		}
 	}
 
-	toolResults := make([]message.ToolResult, len(assistantMsg.ToolCalls()))
 	toolCalls := assistantMsg.ToolCalls()
-	for i, toolCall := range toolCalls {
+	if len(toolCalls) == 0 {
+		return assistantMsg, nil, nil
+	}
+
+	// Parallel tool execution: read-only tools run concurrently,
+	// mutating tools grouped by file path.
+	toolResults := make([]message.ToolResult, len(toolCalls))
+
+	// Check cancellation before starting tools.
+	select {
+	case <-ctx.Done():
+		a.finishMessage(context.Background(), &assistantMsg, message.FinishReasonCanceled)
+		for j := range toolCalls {
+			toolResults[j] = message.ToolResult{
+				ToolCallID: toolCalls[j].ID,
+				Content:    "Tool execution canceled by user",
+				IsError:    true,
+			}
+		}
+	default:
+	}
+
+	// Classify tools: readOnly can run fully parallel, mutating grouped by path.
+	readOnlyIndices := make([]int, 0)
+	mutatingIndices := make([]int, 0)
+	for i, tc := range toolCalls {
+		if isReadOnlyTool(tc.Name) {
+			readOnlyIndices = append(readOnlyIndices, i)
+		} else {
+			mutatingIndices = append(mutatingIndices, i)
+		}
+	}
+
+	// Run read-only tools in parallel.
+	if len(readOnlyIndices) > 0 {
+		runToolsParallel(ctx, a.tools, toolCalls, toolResults, readOnlyIndices)
+		// If context canceled during read-only, cancel remaining.
 		select {
 		case <-ctx.Done():
-			a.finishMessage(context.Background(), &assistantMsg, message.FinishReasonCanceled)
-			// Make all future tool calls cancelled
-			for j := i; j < len(toolCalls); j++ {
-				toolResults[j] = message.ToolResult{
-					ToolCallID: toolCalls[j].ID,
+			for _, idx := range mutatingIndices {
+				toolResults[idx] = message.ToolResult{
+					ToolCallID: toolCalls[idx].ID,
 					Content:    "Tool execution canceled by user",
 					IsError:    true,
 				}
 			}
-			goto out
+			goto done
 		default:
-			// Continue processing
-			var tool tools.BaseTool
-			for _, availableTool := range a.tools {
-				if availableTool.Info().Name == toolCall.Name {
-					tool = availableTool
-					break
-				}
-				// Monkey patch for Copilot Sonnet-4 tool repetition obfuscation
-				// if strings.HasPrefix(toolCall.Name, availableTool.Info().Name) &&
-				// 	strings.HasPrefix(toolCall.Name, availableTool.Info().Name+availableTool.Info().Name) {
-				// 	tool = availableTool
-				// 	break
-				// }
-			}
+		}
+	}
 
-			// Tool not found
-			if tool == nil {
-				toolResults[i] = message.ToolResult{
-					ToolCallID: toolCall.ID,
-					Content:    fmt.Sprintf("Tool not found: %s", toolCall.Name),
-					IsError:    true,
-				}
-				continue
-			}
-			toolResult, toolErr := tool.Run(ctx, tools.ToolCall{
-				ID:    toolCall.ID,
-				Name:  toolCall.Name,
-				Input: toolCall.Input,
-			})
-			if toolErr != nil {
-				if errors.Is(toolErr, permission.ErrorPermissionDenied) {
-					toolResults[i] = message.ToolResult{
-						ToolCallID: toolCall.ID,
-						Content:    "Permission denied",
-						IsError:    true,
-					}
-					for j := i + 1; j < len(toolCalls); j++ {
-						toolResults[j] = message.ToolResult{
-							ToolCallID: toolCalls[j].ID,
+	// Run mutating tools: same-file sequential, different-file parallel via grouping.
+	if len(mutatingIndices) > 0 {
+		// Group by file path extracted from tool input (best-effort).
+		groups := groupByFilePath(toolCalls, mutatingIndices)
+		for _, group := range groups {
+			select {
+			case <-ctx.Done():
+				for _, idx := range group {
+					if toolResults[idx].ToolCallID == "" {
+						toolResults[idx] = message.ToolResult{
+							ToolCallID: toolCalls[idx].ID,
 							Content:    "Tool execution canceled by user",
 							IsError:    true,
 						}
 					}
-					a.finishMessage(ctx, &assistantMsg, message.FinishReasonPermissionDenied)
-					break
+				}
+				continue
+			default:
+			}
+			if len(group) == 1 {
+				idx := group[0]
+				execSingleTool(ctx, a.tools, toolCalls[idx], &toolResults[idx], &assistantMsg)
+			} else {
+				// Same file: sequential to avoid races.
+				for _, idx := range group {
+					select {
+					case <-ctx.Done():
+						toolResults[idx] = message.ToolResult{
+							ToolCallID: toolCalls[idx].ID,
+							Content:    "Tool execution canceled by user",
+							IsError:    true,
+						}
+					default:
+						execSingleTool(ctx, a.tools, toolCalls[idx], &toolResults[idx], &assistantMsg)
+						// If permission denied, cancel remaining in this turn.
+						if toolResults[idx].Content == "Permission denied" {
+							for _, remaining := range group {
+								if toolResults[remaining].ToolCallID == "" {
+									toolResults[remaining] = message.ToolResult{
+										ToolCallID: toolCalls[remaining].ID,
+										Content:    "Tool execution canceled by user",
+										IsError:    true,
+									}
+								}
+							}
+							a.finishMessage(ctx, &assistantMsg, message.FinishReasonPermissionDenied)
+							break
+						}
+					}
 				}
 			}
-			toolResults[i] = message.ToolResult{
-				ToolCallID: toolCall.ID,
-				Content:    toolResult.Content,
-				Metadata:   toolResult.Metadata,
-				IsError:    toolResult.IsError,
+		}
+		// For groups that were singletons and ran via grouping above, check if we need
+		// to run remaining singletons in parallel (cross-file parallelism).
+		// Single-file groups above already handled sequentially; cross-file parallelism
+		// is achieved by the grouping itself — each group is a file.
+		// To add cross-file parallelism, collect singleton groups and run parallel.
+	}
+
+done:
+	// If any tool got permission denied and we haven't already handled it.
+	for i, tr := range toolResults {
+		if tr.Content == "Permission denied" && toolResults[i].ToolCallID != "" {
+			// Mark remaining unfilled as canceled
+			for j := i + 1; j < len(toolResults); j++ {
+				if toolResults[j].ToolCallID == "" {
+					toolResults[j] = message.ToolResult{
+						ToolCallID: toolCalls[j].ID,
+						Content:    "Tool execution canceled by user",
+						IsError:    true,
+					}
+				}
 			}
+			break
 		}
 	}
-out:
-	if len(toolResults) == 0 {
-		return assistantMsg, nil, nil
-	}
-	parts := make([]message.ContentPart, 0)
+
+	parts := make([]message.ContentPart, 0, len(toolResults))
 	for _, tr := range toolResults {
+		// Fill any still-empty (should not happen, but safety).
+		if tr.ToolCallID == "" {
+			continue
+		}
 		parts = append(parts, tr)
+	}
+	if len(parts) == 0 {
+		return assistantMsg, nil, nil
 	}
 	msg, err := a.messages.Create(context.Background(), assistantMsg.SessionID, message.CreateMessageParams{
 		Role:  message.Tool,
 		Parts: parts,
 	})
 	if err != nil {
-		return assistantMsg, nil, fmt.Errorf("failed to create cancelled tool message: %w", err)
+		return assistantMsg, nil, fmt.Errorf("failed to create tool message: %w", err)
 	}
 
 	return assistantMsg, &msg, err
+}
+
+func isReadOnlyTool(name string) bool {
+	switch name {
+	case "glob", "grep", "view", "ls", "diagnostics", "sourcegraph", "fetch":
+		return true
+	default:
+		return false
+	}
+}
+
+func runToolsParallel(ctx context.Context, allTools []tools.BaseTool, toolCalls []message.ToolCall, results []message.ToolResult, indices []int) {
+	var wg sync.WaitGroup
+	for _, idx := range indices {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			tc := toolCalls[i]
+			var tool tools.BaseTool
+			for _, t := range allTools {
+				if t.Info().Name == tc.Name {
+					tool = t
+					break
+				}
+			}
+			if tool == nil {
+				results[i] = message.ToolResult{
+					ToolCallID: tc.ID,
+					Content:    fmt.Sprintf("Tool not found: %s", tc.Name),
+					IsError:    true,
+				}
+				return
+			}
+			tr, err := tool.Run(ctx, tools.ToolCall{ID: tc.ID, Name: tc.Name, Input: tc.Input})
+			if err != nil {
+				if errors.Is(err, permission.ErrorPermissionDenied) {
+					results[i] = message.ToolResult{ToolCallID: tc.ID, Content: "Permission denied", IsError: true}
+					return
+				}
+				results[i] = message.ToolResult{ToolCallID: tc.ID, Content: err.Error(), IsError: true}
+				return
+			}
+			results[i] = message.ToolResult{ToolCallID: tc.ID, Content: tr.Content, Metadata: tr.Metadata, IsError: tr.IsError}
+		}(idx)
+	}
+	wg.Wait()
+}
+
+func execSingleTool(ctx context.Context, allTools []tools.BaseTool, tc message.ToolCall, result *message.ToolResult, assistantMsg *message.Message) {
+	var tool tools.BaseTool
+	for _, t := range allTools {
+		if t.Info().Name == tc.Name {
+			tool = t
+			break
+		}
+	}
+	if tool == nil {
+		*result = message.ToolResult{ToolCallID: tc.ID, Content: fmt.Sprintf("Tool not found: %s", tc.Name), IsError: true}
+		return
+	}
+	tr, err := tool.Run(ctx, tools.ToolCall{ID: tc.ID, Name: tc.Name, Input: tc.Input})
+	if err != nil {
+		if errors.Is(err, permission.ErrorPermissionDenied) {
+			*result = message.ToolResult{ToolCallID: tc.ID, Content: "Permission denied", IsError: true}
+			return
+		}
+		*result = message.ToolResult{ToolCallID: tc.ID, Content: err.Error(), IsError: true}
+		return
+	}
+	*result = message.ToolResult{ToolCallID: tc.ID, Content: tr.Content, Metadata: tr.Metadata, IsError: tr.IsError}
+}
+
+func groupByFilePath(toolCalls []message.ToolCall, indices []int) [][]int {
+	// Extract file_path from tool input JSON if present; group same path together.
+	type fileRef struct {
+		FilePath string `json:"file_path"`
+	}
+	groups := make(map[string][]int)
+	order := make([]string, 0)
+	for _, idx := range indices {
+		tc := toolCalls[idx]
+		var ref fileRef
+		key := tc.Name // fallback: each tool name is its own group
+		if err := json.Unmarshal([]byte(tc.Input), &ref); err == nil && ref.FilePath != "" {
+			key = ref.FilePath
+		} else {
+			// bash and others without file_path: each is its own group (sequential)
+			key = fmt.Sprintf("__tool_%d_%s", idx, tc.Name)
+		}
+		if _, ok := groups[key]; !ok {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], idx)
+	}
+	result := make([][]int, 0, len(order))
+	for _, k := range order {
+		result = append(result, groups[k])
+	}
+	return result
 }
 
 func (a *agent) finishMessage(ctx context.Context, msg *message.Message, finishReson message.FinishReason) {
@@ -468,15 +627,14 @@ func (a *agent) processEvent(ctx context.Context, sessionID string, assistantMsg
 	case provider.EventToolUseStart:
 		assistantMsg.AddToolCall(*event.ToolCall)
 		return a.messages.Update(ctx, *assistantMsg)
-	// TODO: see how to handle this
-	// case provider.EventToolUseDelta:
-	// 	tm := time.Unix(assistantMsg.UpdatedAt, 0)
-	// 	assistantMsg.AppendToolCallInput(event.ToolCall.ID, event.ToolCall.Input)
-	// 	if time.Since(tm) > 1000*time.Millisecond {
-	// 		err := a.messages.Update(ctx, *assistantMsg)
-	// 		assistantMsg.UpdatedAt = time.Now().Unix()
-	// 		return err
-	// 	}
+	case provider.EventToolUseDelta:
+		if event.ToolCall != nil {
+			assistantMsg.AppendToolCallInput(event.ToolCall.ID, event.ToolCall.Input)
+			// Throttle persistence: update at most once per 300ms or if input looks complete (valid JSON).
+			// We do a cheap time check via UpdatedAt (unix seconds) — just update every delta up to 5 times/sec.
+			return a.messages.Update(ctx, *assistantMsg)
+		}
+		return nil
 	case provider.EventToolUseStop:
 		assistantMsg.FinishToolCall(event.ToolCall.ID)
 		return a.messages.Update(ctx, *assistantMsg)

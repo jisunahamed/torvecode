@@ -28,7 +28,6 @@ func GetAgentPrompt(agentName config.AgentName, provider models.ModelProvider) s
 	}
 
 	if agentName == config.AgentCoder || agentName == config.AgentTask {
-		// Add context from project-specific instruction files if they exist
 		contextContent := getContextFromPaths()
 		contextContent += skills.Catalog(config.WorkingDirectory())
 		if contextContent != "" {
@@ -39,22 +38,41 @@ func GetAgentPrompt(agentName config.AgentName, provider models.ModelProvider) s
 }
 
 var (
-	onceContext    sync.Once
+	muContext      sync.RWMutex
 	contextContent string
+	contextLoaded  bool
 )
 
 func getContextFromPaths() string {
-	onceContext.Do(func() {
-		var (
-			cfg          = config.Get()
-			workDir      = cfg.WorkingDir
-			contextPaths = cfg.ContextPaths
-		)
+	muContext.RLock()
+	if contextLoaded {
+		content := contextContent
+		muContext.RUnlock()
+		return content
+	}
+	muContext.RUnlock()
 
-		contextContent = processContextPaths(workDir, contextPaths)
-	})
-
+	muContext.Lock()
+	defer muContext.Unlock()
+	if contextLoaded {
+		return contextContent
+	}
+	cfg := config.Get()
+	if cfg == nil {
+		contextLoaded = true
+		return ""
+	}
+	contextContent = processContextPaths(cfg.WorkingDir, cfg.ContextPaths)
+	contextLoaded = true
 	return contextContent
+}
+
+// ReloadContext forces re-reading of context files (called after TORVECODE.md creation).
+func ReloadContext() {
+	muContext.Lock()
+	defer muContext.Unlock()
+	contextLoaded = false
+	contextContent = ""
 }
 
 func processContextPaths(workDir string, paths []string) string {
