@@ -21,14 +21,19 @@ type SplitPaneLayout interface {
 }
 
 type splitPaneLayout struct {
-	width         int
-	height        int
+	width  int
+	height int
+	// ratio and verticalRatio are legacy options kept for API compatibility;
+	// current layout uses fixed percentages: sidebar 24% (clamped 24–28) and
+	// bottom panel height = H/6 clamped 3–8. These fields are ignored.
 	ratio         float64
 	verticalRatio float64
 
 	rightPanel  Container
 	leftPanel   Container
 	bottomPanel Container
+	// rightWidth tracks the last computed right panel width (0 when hidden at W<80)
+	rightWidth int
 }
 
 type SplitPaneOption func(*splitPaneLayout)
@@ -88,13 +93,16 @@ func (s *splitPaneLayout) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (s *splitPaneLayout) View() string {
 	var topSection string
 
-	if s.leftPanel != nil && s.rightPanel != nil {
+	// When rightWidth==0 (narrow W<80) we hide the sidebar entirely and must not
+	// JoinHorizontal an empty right panel — it would still emit a zero-width cell.
+	showRight := s.rightPanel != nil && s.rightWidth > 0
+	if s.leftPanel != nil && showRight {
 		leftView := s.leftPanel.View()
 		rightView := s.rightPanel.View()
 		topSection = lipgloss.JoinHorizontal(lipgloss.Top, leftView, rightView)
 	} else if s.leftPanel != nil {
 		topSection = s.leftPanel.View()
-	} else if s.rightPanel != nil {
+	} else if showRight {
 		topSection = s.rightPanel.View()
 	} else {
 		topSection = ""
@@ -171,6 +179,8 @@ func (s *splitPaneLayout) SetSize(width, height int) tea.Cmd {
 		leftWidth = 0
 		rightWidth = width
 	}
+	// Persist rightWidth for View() responsive hide check
+	s.rightWidth = rightWidth
 
 	var cmds []tea.Cmd
 	if s.leftPanel != nil {
@@ -179,8 +189,11 @@ func (s *splitPaneLayout) SetSize(width, height int) tea.Cmd {
 	}
 
 	if s.rightPanel != nil {
-		cmd := s.rightPanel.SetSize(rightWidth, topHeight)
-		cmds = append(cmds, cmd)
+		// Don't call SetSize(0,...) when hidden — sidebarCmp.SetSize clamps 24..28
+		if rightWidth > 0 {
+			cmd := s.rightPanel.SetSize(rightWidth, topHeight)
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	if s.bottomPanel != nil {

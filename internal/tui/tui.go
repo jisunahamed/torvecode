@@ -194,7 +194,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width, a.height = msg.Width, msg.Height
 		headerH := core.HeaderHeight()
-		statusH := 1
+		statusH := 2
 		contentH := max(1, msg.Height-headerH-statusH)
 		_ = a.header.SetSize(msg.Width, headerH)
 		s, _ := a.status.Update(tea.WindowSizeMsg{Width: msg.Width, Height: statusH})
@@ -721,7 +721,8 @@ func (a *appModel) moveToPage(pageID page.PageID) tea.Cmd {
 	a.previousPage = a.currentPage
 	a.currentPage = pageID
 	if sizable, ok := a.pages[a.currentPage].(layout.Sizeable); ok {
-		cmd := sizable.SetSize(a.width, a.height)
+		contentH := max(1, a.height-core.HeaderHeight()-2)
+		cmd := sizable.SetSize(a.width, contentH)
 		cmds = append(cmds, cmd)
 	}
 

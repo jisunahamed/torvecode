@@ -27,21 +27,62 @@ func (h *HeaderCmp) SetSize(width, _ int) tea.Cmd {
 	return nil
 }
 
-func (h HeaderCmp) Height() int { return 1 }
+func (h HeaderCmp) Height() int { return 2 }
 
 func truncateMiddle(s string, maxLen int) string {
 	if maxLen <= 0 || lipgloss.Width(s) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
-	}
-	half := (maxLen - 1) / 2
-	runes := []rune(s)
-	if len(runes) <= maxLen {
+		// Return prefix truncated by display width
+		runes := []rune(s)
+		w := 0
+		for i, r := range runes {
+			rw := lipgloss.Width(string(r))
+			if w+rw > maxLen {
+				return string(runes[:i])
+			}
+			w += rw
+		}
 		return s
 	}
-	return string(runes[:half]) + "…" + string(runes[len(runes)-(maxLen-half-1):])
+	// Width-aware truncation: split budget between prefix and suffix around "…"
+	ellipsisW := lipgloss.Width("…")
+	budget := maxLen - ellipsisW
+	if budget <= 0 {
+		return "…"
+	}
+	half := budget / 2
+	other := budget - half
+
+	runes := []rune(s)
+	// Accumulate prefix by width
+	prefixW := 0
+	prefixEnd := 0
+	for i, r := range runes {
+		rw := lipgloss.Width(string(r))
+		if prefixW+rw > half {
+			break
+		}
+		prefixW += rw
+		prefixEnd = i + 1
+	}
+	// Accumulate suffix by width from the end
+	suffixW := 0
+	suffixStart := len(runes)
+	for i := len(runes) - 1; i >= 0; i-- {
+		rw := lipgloss.Width(string(runes[i]))
+		if suffixW+rw > other {
+			break
+		}
+		suffixW += rw
+		suffixStart = i
+	}
+	// If prefix+suffix covers the string, no truncation needed
+	if prefixEnd >= suffixStart {
+		return s
+	}
+	return string(runes[:prefixEnd]) + "…" + string(runes[suffixStart:])
 }
 
 func (h HeaderCmp) View() string {
@@ -64,7 +105,7 @@ func (h HeaderCmp) View() string {
 	cwd := config.WorkingDirectory()
 	// Show basename-heavy path; truncate middle for long paths
 	displayCwd := cwd
-	if len(displayCwd) > 36 {
+	if lipgloss.Width(displayCwd) > 36 {
 		base := filepath.Base(cwd)
 		dir := filepath.Dir(cwd)
 		if len(base)+4 < 36 {
@@ -139,11 +180,12 @@ func (h HeaderCmp) View() string {
 		Background(t.Background()).
 		Render(row)
 
-	// Thin bottom separator
+	// Thin bottom separator — same inner width as row (Padding 0,1) for alignment
 	sep2 := lipgloss.NewStyle().
 		Width(w).
+		Padding(0, 1).
 		Foreground(t.BorderDim()).
-		Render(strings.Repeat("─", w))
+		Render(strings.Repeat("─", w-2))
 
 	return lipgloss.JoinVertical(lipgloss.Left, row, sep2)
 }

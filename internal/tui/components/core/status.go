@@ -142,7 +142,7 @@ func (m statusCmp) View() string {
 		}
 		left = muted.Render(left)
 	} else {
-		left = muted.Render("IN 0  ·  OUT 0  ·  0% context (0/128K)")
+		left = muted.Render("IN 0 · OUT 0 · 0% context (0/128K)")
 		if w < 60 {
 			left = muted.Render("IN 0 · OUT 0")
 		}
@@ -199,13 +199,13 @@ func (m statusCmp) View() string {
 		right = help
 	}
 
-	// Single line with top separator
-	sep := lipgloss.NewStyle().Foreground(t.BorderDim()).Render(strings.Repeat("─", w))
+	// Single line with top separator — same inner width as row (Padding 0,1) for alignment with header
+	sep := lipgloss.NewStyle().Width(w).Padding(0, 1).Foreground(t.BorderDim()).Render(strings.Repeat("─", w-2))
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if gap < 1 {
 		gap = 1
 	}
-	row := lipgloss.NewStyle().Width(w).Padding(0, 1).Render(left + strings.Repeat(" ", gap) + right)
+	row := lipgloss.NewStyle().Width(w).Padding(0, 1).Background(t.Background()).Render(left + strings.Repeat(" ", gap) + right)
 	return lipgloss.JoinVertical(lipgloss.Left, sep, row)
 }
 

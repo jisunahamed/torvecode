@@ -295,6 +295,8 @@ func (m *editorCmp) View() string {
 		)
 	}
 
+	// Content width inside outer border+padding: W - 2(border) - 2(padding) = W-4
+	// Keep consistent with SetSize which also uses W-4.
 	innerWidth := m.width - 4
 	if innerWidth < 10 {
 		innerWidth = m.width
@@ -302,15 +304,24 @@ func (m *editorCmp) View() string {
 	m.textarea.SetWidth(innerWidth - lipgloss.Width(limeArrow) - 2)
 
 	editorRow := lipgloss.JoinHorizontal(lipgloss.Top, limeArrow+" ", m.textarea.View())
-	if m.width >= 80 && hints != "" {
-		// Hints on same line if single-line input, otherwise below
-		editorRow = lipgloss.JoinHorizontal(lipgloss.Top, limeArrow+" ", m.textarea.View())
-	}
 
+	// Inline hints when wide and single-line (no newline, no attachments)
+	isSingleLine := !strings.Contains(m.textarea.Value(), "\n")
 	var content string
 	if len(m.attachments) == 0 {
-		if hints != "" {
-			// Input + hints in vertical stack inside border
+		if hints != "" && m.width >= 80 && isSingleLine {
+			// Measure combined width; if it fits, keep hints on same row.
+			combinedW := lipgloss.Width(editorRow) + 2 + lipgloss.Width(hints)
+			if combinedW <= innerWidth {
+				gap := innerWidth - lipgloss.Width(editorRow) - lipgloss.Width(hints)
+				if gap < 2 {
+					gap = 2
+				}
+				content = lipgloss.JoinHorizontal(lipgloss.Top, editorRow, strings.Repeat(" ", gap), hints)
+			} else {
+				content = lipgloss.JoinVertical(lipgloss.Left, editorRow, "", hints)
+			}
+		} else if hints != "" {
 			content = lipgloss.JoinVertical(lipgloss.Left, editorRow, "", hints)
 		} else {
 			content = editorRow
@@ -337,17 +348,18 @@ func (m *editorCmp) View() string {
 func (m *editorCmp) SetSize(width, height int) tea.Cmd {
 	m.width = width
 	m.height = height
-	innerWidth := width - 6
+	// Keep in sync with View: outer border(2)+padding(2)=4, then arrow+gap.
+	innerWidth := width - 4
 	if innerWidth < 10 {
 		innerWidth = width - 2
 	}
-	m.textarea.SetWidth(innerWidth)
+	m.textarea.SetWidth(max(10, innerWidth-3))
 	m.textarea.SetHeight(max(1, height-2))
 	return nil
 }
 
 func (m *editorCmp) GetSize() (int, int) {
-	return m.textarea.Width(), m.textarea.Height()
+	return m.width, m.height
 }
 
 func (m *editorCmp) attachmentsContent() string {

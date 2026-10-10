@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/jisunahamed/torvecode/internal/config"
 	"github.com/jisunahamed/torvecode/internal/diff"
 	"github.com/jisunahamed/torvecode/internal/history"
@@ -83,33 +84,27 @@ func (m *sidebarCmp) View() string {
 	t := theme.CurrentTheme()
 	baseStyle := styles.BaseStyle()
 
-	// Clamp width 24-28, padding 1,1
 	w := m.width
 	if w < 10 {
 		return ""
 	}
-	contentW := w - 2
+	// View renders Width(w) + Padding(1,1) + Border left 1 => inner content width is w-3
+	contentW := w - 3
 	if contentW < 8 {
-		contentW = w
+		contentW = max(8, w-1)
 	}
-	cwd := config.WorkingDirectory()
-	if len(cwd) > contentW {
-		cwd = cwd[:contentW-1] + "…"
-	}
+	cwd := ansi.Truncate(config.WorkingDirectory(), contentW, "…")
 
 	wsSection := lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.JoinHorizontal(lipgloss.Left, lipgloss.NewStyle().Foreground(t.Success()).Render("◇ "), baseStyle.Foreground(t.TextMuted()).Width(contentW-2).Render("WORKSPACE")),
 		baseStyle.Foreground(t.Text()).Width(contentW).Render(cwd),
 	)
 
-	csIcon := lipgloss.NewStyle().Foreground(t.Success()).Render("▭")
 	sessionTitle := m.session.Title
 	if sessionTitle == "" {
 		sessionTitle = "No session"
 	}
-	if len(sessionTitle) > contentW {
-		sessionTitle = sessionTitle[:contentW-1] + "…"
-	}
+	sessionTitle = ansi.Truncate(sessionTitle, contentW, "…")
 	sessionDesc := ""
 	if m.session.Title != "" {
 		sessionDesc = "Active"
@@ -119,7 +114,6 @@ func (m *sidebarCmp) View() string {
 		baseStyle.Foreground(t.Text()).Width(contentW).Render(sessionTitle),
 		baseStyle.Foreground(t.TextMuted()).Width(contentW).Render(sessionDesc),
 	)
-	_ = csIcon
 
 	// Modified files
 	mfHeading := lipgloss.JoinHorizontal(lipgloss.Left, lipgloss.NewStyle().Foreground(t.Success()).Render("⑂ "), baseStyle.Foreground(t.TextMuted()).Width(contentW-2).Render("MODIFIED FILES"))
@@ -135,10 +129,7 @@ func (m *sidebarCmp) View() string {
 		var rows []string
 		for _, path := range paths {
 			stats := m.modFiles[path]
-			label := path
-			if len(label) > contentW-6 {
-				label = label[:contentW-7] + "…"
-			}
+			label := ansi.Truncate(path, max(4, contentW-6), "…")
 			addStr := ""
 			if stats.additions > 0 {
 				addStr = lipgloss.NewStyle().Foreground(t.Success()).Render(fmt.Sprintf(" +%d", stats.additions))
@@ -153,20 +144,14 @@ func (m *sidebarCmp) View() string {
 	}
 	mfSection := lipgloss.JoinVertical(lipgloss.Left, mfHeading, mfBody)
 
-	// Diagnostics
+	// Diagnostics — static placeholder; real LSP state lives in status bar (see core/status.go).
 	diagIcon := lipgloss.NewStyle().Foreground(t.Success()).Render("∿")
 	diagHeading := lipgloss.JoinHorizontal(lipgloss.Left, diagIcon+" ", baseStyle.Foreground(t.TextMuted()).Width(contentW-2).Render("DIAGNOSTICS"))
-	diagBody := baseStyle.Foreground(t.TextMuted()).Render("No issues")
-	diagSub := baseStyle.Foreground(t.TextMuted()).Render("LSP ready")
-	// Only show LSP ready if we have LSP configured and ready — otherwise keep muted placeholder but not fake
 	diagSection := lipgloss.JoinVertical(lipgloss.Left,
 		diagHeading,
 		lipgloss.NewStyle().Foreground(t.Success()).Render("  ✓ ")+baseStyle.Foreground(t.Text()).Render("No issues"),
 		baseStyle.Foreground(t.TextMuted()).Render("    LSP ready"),
 	)
-	_ = diagBody
-	_ = diagSub
-	_ = mfHeading
 
 	sepStyle := lipgloss.NewStyle().Foreground(t.BorderDim())
 	sep := sepStyle.Render(strings.Repeat("─", contentW))

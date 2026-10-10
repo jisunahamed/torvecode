@@ -47,7 +47,7 @@ func toMarkdown(content string, focused bool, width int) string {
 func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...string) string {
 	t := theme.CurrentTheme()
 
-	// User: subtle pill, Assistant: lime left accent
+	// User: subtle pill, Assistant: lime left accent (1px)
 	var style lipgloss.Style
 	if isUser {
 		style = lipgloss.NewStyle().
@@ -62,9 +62,9 @@ func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...s
 			BorderLeft(true).
 			Foreground(t.Text()).
 			BorderForeground(t.Success()).
-			BorderStyle(lipgloss.ThickBorder()).
+			BorderStyle(lipgloss.NormalBorder()).
 			PaddingLeft(1).
-			Width(width - 2)
+			Width(width - 1)
 	}
 
 	// Apply markdown formatting and handle background color
@@ -116,7 +116,7 @@ func renderUserMessage(msg message.Message, isFocused bool, width int, position 
 		}
 		styledAttachments = append(styledAttachments, attachmentStyles.Render(filename))
 	}
-	bodyContent := renderMessage(msg.Content().String(), true, isFocused, width-2)
+	bodyContent := renderMessage(msg.Content().String(), true, isFocused, width-1)
 	body := lipgloss.NewStyle().Width(width).PaddingLeft(1).Render(bodyContent)
 	var content string
 	if len(styledAttachments) > 0 {
@@ -221,11 +221,11 @@ func renderAssistantMessage(
 			lipgloss.NewStyle().Foreground(t.Text()).Bold(true).PaddingLeft(1).Render("TorveCode"),
 			lipgloss.NewStyle().Foreground(t.TextMuted()).PaddingLeft(1).Render(timeStr),
 		)
-		body := renderMessage(content, false, true, width-2, info...)
+		body := renderMessage(content, false, true, width-1, info...)
 		// Suggestion box after first greeting (only when very few messages)
 		suggestionBox := ""
 		if len(allMessages) <= 2 && msgIndex <= 1 && finished && finishData.Reason == message.FinishReasonEndTurn {
-			suggestionBox = renderSuggestionBox(width - 2)
+			suggestionBox = renderSuggestionBox(width - 1)
 		}
 		var combined string
 		if suggestionBox != "" {
@@ -608,7 +608,7 @@ func renderToolMessage(
 	style := baseStyle.
 		Width(width - 1).
 		BorderLeft(true).
-		BorderStyle(lipgloss.ThickBorder()).
+		BorderStyle(lipgloss.NormalBorder()).
 		PaddingLeft(1).
 		BorderForeground(t.TextMuted())
 

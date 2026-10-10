@@ -299,7 +299,7 @@ func (m *messagesCmp) View() string {
 	if len(m.messages) == 0 {
 		content := baseStyle.
 			Width(m.width).
-			Height(m.height - 1).
+			Height(m.height - 2).
 			Render(
 				m.initialScreen(),
 			)
@@ -310,7 +310,6 @@ func (m *messagesCmp) View() string {
 				lipgloss.JoinVertical(
 					lipgloss.Top,
 					content,
-					"",
 					m.help(),
 				),
 			)
@@ -452,7 +451,7 @@ func (m *messagesCmp) SetSize(width, height int) tea.Cmd {
 	m.height = height
 	m.viewport.Width = width
 	m.viewport.Height = height - 2
-	m.attachments.Width = width + 40
+	m.attachments.Width = width
 	m.attachments.Height = 3
 	m.rerender()
 	return nil

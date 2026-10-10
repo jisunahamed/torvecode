@@ -15,25 +15,25 @@ func Ink(dark, light string) lipgloss.TerminalColor {
 }
 
 // Signature translates Torve's cube robot into portable terminal characters.
-// Palette: amber/graphite SaaS look.
+// Palette: lime #A3E635 on dark #0B0D0F, matches reference spec.
 func Signature(width int) string {
-	amber := lipgloss.NewStyle().Foreground(Ink("#F59E0B", "#D97706")).Bold(true)
-	amberDim := lipgloss.NewStyle().Foreground(Ink("#FBBF24", "#F59E0B"))
-	stone := lipgloss.NewStyle().Foreground(Ink("#E7E5E4", "#1C1917"))
-	stoneMuted := lipgloss.NewStyle().Foreground(Ink("#A8A29E", "#78716C"))
-	title := amber.Render("TORVECODE")
+	lime := lipgloss.NewStyle().Foreground(Ink("#A3E635", "#65A30D")).Bold(true)
+	limeDim := lipgloss.NewStyle().Foreground(Ink("#86C530", "#65A30D"))
+	txt := lipgloss.NewStyle().Foreground(Ink("#E8EAED", "#0F172A"))
+	muted := lipgloss.NewStyle().Foreground(Ink("#77818C", "#64748B"))
+	title := lime.Render("TORVECODE")
 	if width < 48 {
 		return title
 	}
 	robot := strings.Join([]string{
-		amber.Render("     ▄██████▄"),
-		amberDim.Render("  ▄██▀      ▀██▄"),
-		stone.Render("  ██ ") + amber.Render(" ▄▄▄▄▄▄▄ ") + stoneMuted.Render("█"),
-		stone.Render("  ██ ") + amber.Render(" █ ● ● █ ") + stoneMuted.Render("█"),
-		stone.Render("  ▀█ ") + amber.Render(" ▀▀█ █▀▀ ") + stoneMuted.Render("█"),
-		stone.Render("    ▀▄ ") + amber.Render(" █ █ "),
-		stone.Render("      ▀ ") + amber.Render("▀▀▀"),
+		lime.Render("     ▄██████▄"),
+		limeDim.Render("  ▄██▀      ▀██▄"),
+		txt.Render("  ██ ") + lime.Render(" ▄▄▄▄▄▄▄ ") + muted.Render("█"),
+		txt.Render("  ██ ") + lime.Render(" █ ● ● █ ") + muted.Render("█"),
+		txt.Render("  ▀█ ") + lime.Render(" ▀▀█ █▀▀ ") + muted.Render("█"),
+		txt.Render("    ▀▄ ") + lime.Render(" █ █ "),
+		txt.Render("      ▀ ") + lime.Render("▀▀▀"),
 	}, "\n")
-	copy := lipgloss.JoinVertical(lipgloss.Left, title, "", stone.Bold(false).Render("Make something yours."), stoneMuted.Render("Torve AI  /  coding workspace"))
+	copy := lipgloss.JoinVertical(lipgloss.Left, title, "", txt.Bold(false).Render("Make something yours."), muted.Render("Torve AI  /  coding workspace"))
 	return lipgloss.JoinHorizontal(lipgloss.Center, robot, "    ", copy)
 }

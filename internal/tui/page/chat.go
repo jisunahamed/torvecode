@@ -141,10 +141,11 @@ func (p *chatPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (p *chatPage) setSidebar() tea.Cmd {
+	// Container must not add its own border — sidebarCmp.View already renders
+	// a left separator (BorderNormal, left=true). Keeping both would double the line.
 	sidebarContainer := layout.NewContainer(
 		chat.NewSidebarCmp(p.session, p.app.History),
 		layout.WithPadding(1, 1, 1, 1),
-		layout.WithBorder(false, true, false, false),
 	)
 	return tea.Batch(p.layout.SetRightPanel(sidebarContainer), sidebarContainer.Init())
 }
@@ -155,10 +156,7 @@ func (p *chatPage) clearSidebar() tea.Cmd {
 
 func (p *chatPage) SetSidebarVisible(visible bool) tea.Cmd {
 	if visible {
-		if p.session.ID != "" {
-			return p.setSidebar()
-		}
-		return nil
+		return p.setSidebar()
 	}
 	return p.layout.ClearRightPanel()
 }
@@ -198,15 +196,35 @@ func (p *chatPage) View() string {
 	layoutView := p.layout.View()
 
 	if p.showCompletionDialog {
+		// Bottom panel is the editor container; use its outer size if available,
+		// not inner textarea size which is inset by padding/borders.
+		var editorH int
+		if _, h := p.editor.GetSize(); h > 0 {
+			editorH = h
+		} else if _, lh := p.layout.GetSize(); lh > 0 {
+			editorH = lh / 6
+			if editorH < 3 {
+				editorH = 3
+			}
+			if editorH > 8 {
+				editorH = 8
+			}
+		}
 		_, layoutHeight := p.layout.GetSize()
-		editorWidth, editorHeight := p.editor.GetSize()
+		layoutW, _ := p.layout.GetSize()
+		_ = layoutW
 
-		p.completionDialog.SetWidth(editorWidth)
+		// Prefer editor container width for dialog width, fallback to layout width
+		editorW, _ := p.editor.GetSize()
+		if editorW <= 0 {
+			editorW = layoutW
+		}
+		p.completionDialog.SetWidth(editorW)
 		overlay := p.completionDialog.View()
 
 		layoutView = layout.PlaceOverlay(
 			0,
-			layoutHeight-editorHeight-lipgloss.Height(overlay),
+			layoutHeight-editorH-lipgloss.Height(overlay),
 			overlay,
 			layoutView,
 			false,
@@ -233,7 +251,6 @@ func NewChatPage(app *app.App) tea.Model {
 	)
 	editorContainer := layout.NewContainer(
 		chat.NewEditorCmp(app),
-		layout.WithBorder(true, false, false, false),
 	)
 	return &chatPage{
 		app:              app,
