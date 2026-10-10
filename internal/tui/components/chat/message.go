@@ -47,15 +47,24 @@ func toMarkdown(content string, focused bool, width int) string {
 func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...string) string {
 	t := theme.CurrentTheme()
 
-	style := styles.BaseStyle().
-		Width(width - 1).
-		BorderLeft(true).
-		Foreground(t.TextMuted()).
-		BorderForeground(t.Primary()).
-		BorderStyle(lipgloss.ThickBorder())
-
+	// User: subtle pill, Assistant: lime left accent
+	var style lipgloss.Style
 	if isUser {
-		style = style.BorderForeground(t.Secondary())
+		style = lipgloss.NewStyle().
+			Background(t.BackgroundSecondary()).
+			Foreground(t.Text()).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(t.BorderDim()).
+			Padding(0, 1).
+			Width(width - 2)
+	} else {
+		style = lipgloss.NewStyle().
+			BorderLeft(true).
+			Foreground(t.Text()).
+			BorderForeground(t.Success()).
+			BorderStyle(lipgloss.ThickBorder()).
+			PaddingLeft(1).
+			Width(width - 2)
 	}
 
 	// Apply markdown formatting and handle background color
@@ -80,9 +89,20 @@ func renderMessage(msg string, isUser bool, isFocused bool, width int, info ...s
 }
 
 func renderUserMessage(msg message.Message, isFocused bool, width int, position int) uiMessage {
-	var styledAttachments []string
 	t := theme.CurrentTheme()
-	attachmentStyles := styles.BaseStyle().
+	// Header: U circle + You + time
+	timeStr := ""
+	if msg.CreatedAt > 0 {
+		timeStr = time.Unix(msg.CreatedAt, 0).Format("3:04 PM")
+	}
+	header := lipgloss.JoinHorizontal(lipgloss.Left,
+		lipgloss.NewStyle().Background(t.BackgroundSecondary()).Foreground(t.TextMuted()).Padding(0, 1).Render("U"),
+		lipgloss.NewStyle().Foreground(t.Text()).Bold(true).PaddingLeft(1).Render("You"),
+		lipgloss.NewStyle().Foreground(t.TextMuted()).PaddingLeft(1).Render(timeStr),
+	)
+
+	var styledAttachments []string
+	attachmentStyles := lipgloss.NewStyle().
 		MarginLeft(1).
 		Background(t.TextMuted()).
 		Foreground(t.Text())
@@ -96,12 +116,14 @@ func renderUserMessage(msg message.Message, isFocused bool, width int, position 
 		}
 		styledAttachments = append(styledAttachments, attachmentStyles.Render(filename))
 	}
-	content := ""
+	bodyContent := renderMessage(msg.Content().String(), true, isFocused, width-2)
+	body := lipgloss.NewStyle().Width(width).PaddingLeft(1).Render(bodyContent)
+	var content string
 	if len(styledAttachments) > 0 {
-		attachmentContent := styles.BaseStyle().Width(width).Render(lipgloss.JoinHorizontal(lipgloss.Left, styledAttachments...))
-		content = renderMessage(msg.Content().String(), true, isFocused, width, attachmentContent)
+		attRow := lipgloss.NewStyle().Width(width).Render(lipgloss.JoinHorizontal(lipgloss.Left, styledAttachments...))
+		content = lipgloss.JoinVertical(lipgloss.Left, header, body, attRow)
 	} else {
-		content = renderMessage(msg.Content().String(), true, isFocused, width)
+		content = lipgloss.JoinVertical(lipgloss.Left, header, body)
 	}
 	userMsg := uiMessage{
 		ID:          msg.ID,
@@ -189,16 +211,38 @@ func renderAssistantMessage(
 			info = append(info, baseStyle.Width(width-1).Foreground(t.TextMuted()).Render(" (summary)"))
 		}
 
-		content = renderMessage(content, false, true, width, info...)
+		// Assistant header: ⬡ TorveCode time
+		timeStr := ""
+		if msg.CreatedAt > 0 {
+			timeStr = time.Unix(msg.CreatedAt, 0).Format("3:04 PM")
+		}
+		assistantHeader := lipgloss.JoinHorizontal(lipgloss.Left,
+			lipgloss.NewStyle().Background(t.BackgroundSecondary()).Foreground(t.Success()).Padding(0, 1).Render("⬡"),
+			lipgloss.NewStyle().Foreground(t.Text()).Bold(true).PaddingLeft(1).Render("TorveCode"),
+			lipgloss.NewStyle().Foreground(t.TextMuted()).PaddingLeft(1).Render(timeStr),
+		)
+		body := renderMessage(content, false, true, width-2, info...)
+		// Suggestion box after first greeting (only when very few messages)
+		suggestionBox := ""
+		if len(allMessages) <= 2 && msgIndex <= 1 && finished && finishData.Reason == message.FinishReasonEndTurn {
+			suggestionBox = renderSuggestionBox(width - 2)
+		}
+		var combined string
+		if suggestionBox != "" {
+			combined = lipgloss.JoinVertical(lipgloss.Left, assistantHeader, body, suggestionBox)
+		} else {
+			combined = lipgloss.JoinVertical(lipgloss.Left, assistantHeader, body)
+		}
 		messages = append(messages, uiMessage{
 			ID:          msg.ID,
 			messageType: assistantMessageType,
 			position:    position,
-			height:      lipgloss.Height(content),
-			content:     content,
+			height:      lipgloss.Height(combined),
+			content:     combined,
 		})
-		position += lipgloss.Height(content)
+		position += lipgloss.Height(combined)
 		position++ // for the space
+		_ = content // keep for later
 	}
 
 	for i, toolCall := range msg.ToolCalls() {
@@ -657,6 +701,34 @@ func renderToolMessage(
 		content:     content,
 	}
 	return toolMsg
+}
+
+func renderSuggestionBox(width int) string {
+	t := theme.CurrentTheme()
+	muted := lipgloss.NewStyle().Foreground(t.TextMuted())
+	green := lipgloss.NewStyle().Foreground(t.Success())
+	title := muted.Render("Here are some things you can try:")
+	rows := [][]string{
+		{"/explore", "Browse and understand your codebase"},
+		{"/edit", "Make changes to files"},
+		{"/run", "Run commands in your terminal"},
+		{"/help", "Show all available commands"},
+	}
+	var lines []string
+	lines = append(lines, title)
+	for _, r := range rows {
+		cmd := green.Render(r[0])
+		desc := muted.Render(r[1])
+		lines = append(lines, lipgloss.JoinHorizontal(lipgloss.Left, lipgloss.NewStyle().Width(12).Render(cmd), desc))
+	}
+	inner := lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return lipgloss.NewStyle().
+		Width(width).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.BorderDim()).
+		Background(t.BackgroundSecondary()).
+		Padding(0, 1).
+		Render(inner)
 }
 
 // Helper function to format the time difference between two Unix timestamps

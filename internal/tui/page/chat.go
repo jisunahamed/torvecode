@@ -144,11 +144,22 @@ func (p *chatPage) setSidebar() tea.Cmd {
 	sidebarContainer := layout.NewContainer(
 		chat.NewSidebarCmp(p.session, p.app.History),
 		layout.WithPadding(1, 1, 1, 1),
+		layout.WithBorder(false, true, false, false),
 	)
 	return tea.Batch(p.layout.SetRightPanel(sidebarContainer), sidebarContainer.Init())
 }
 
 func (p *chatPage) clearSidebar() tea.Cmd {
+	return p.layout.ClearRightPanel()
+}
+
+func (p *chatPage) SetSidebarVisible(visible bool) tea.Cmd {
+	if visible {
+		if p.session.ID != "" {
+			return p.setSidebar()
+		}
+		return nil
+	}
 	return p.layout.ClearRightPanel()
 }
 

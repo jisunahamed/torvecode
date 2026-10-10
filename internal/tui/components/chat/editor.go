@@ -260,30 +260,89 @@ func (m *editorCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *editorCmp) View() string {
 	t := theme.CurrentTheme()
-
-	// Style the prompt with theme colors
-	style := lipgloss.NewStyle().
-		Padding(0, 0, 0, 1).
-		Bold(true).
-		Foreground(t.Primary())
-
-	if len(m.attachments) == 0 {
-		return lipgloss.JoinHorizontal(lipgloss.Top, style.Render(">"), m.textarea.View())
+	focused := m.textarea.Focused()
+	borderColor := t.BorderDim()
+	if focused {
+		borderColor = t.Success()
 	}
-	m.textarea.SetHeight(m.height - 1)
-	return lipgloss.JoinVertical(lipgloss.Top,
-		m.attachmentsContent(),
-		lipgloss.JoinHorizontal(lipgloss.Top, style.Render(">"),
-			m.textarea.View()),
-	)
+
+	limeArrow := lipgloss.NewStyle().Foreground(t.Success()).Bold(true).Render("›")
+	sep := lipgloss.NewStyle().Foreground(t.BorderDim()).Render(" │ ")
+
+	// Hint pills — only when wide
+	hints := ""
+	if m.width >= 70 {
+		pillStyle := lipgloss.NewStyle().
+			Background(t.BackgroundSecondary()).
+			Foreground(t.TextMuted()).
+			Padding(0, 1).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(t.BorderDim())
+		sendBtn := lipgloss.NewStyle().
+			Background(t.Success()).
+			Foreground(t.Background()).
+			Bold(true).
+			Padding(0, 1).
+			Render("→")
+		hints = lipgloss.JoinHorizontal(lipgloss.Center,
+			pillStyle.Render("@ files"),
+			sep,
+			pillStyle.Render("/ commands"),
+			sep,
+			lipgloss.NewStyle().Foreground(t.TextMuted()).Render("Enter ")+lipgloss.NewStyle().Foreground(t.TextMuted()).Render("to send"),
+			"  ",
+			sendBtn,
+		)
+	}
+
+	innerWidth := m.width - 4
+	if innerWidth < 10 {
+		innerWidth = m.width
+	}
+	m.textarea.SetWidth(innerWidth - lipgloss.Width(limeArrow) - 2)
+
+	editorRow := lipgloss.JoinHorizontal(lipgloss.Top, limeArrow+" ", m.textarea.View())
+	if m.width >= 80 && hints != "" {
+		// Hints on same line if single-line input, otherwise below
+		editorRow = lipgloss.JoinHorizontal(lipgloss.Top, limeArrow+" ", m.textarea.View())
+	}
+
+	var content string
+	if len(m.attachments) == 0 {
+		if hints != "" {
+			// Input + hints in vertical stack inside border
+			content = lipgloss.JoinVertical(lipgloss.Left, editorRow, "", hints)
+		} else {
+			content = editorRow
+		}
+	} else {
+		m.textarea.SetHeight(max(1, m.height-4))
+		attRow := m.attachmentsContent()
+		if hints != "" {
+			content = lipgloss.JoinVertical(lipgloss.Top, attRow, editorRow, "", hints)
+		} else {
+			content = lipgloss.JoinVertical(lipgloss.Top, attRow, editorRow)
+		}
+	}
+
+	return lipgloss.NewStyle().
+		Width(m.width).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Background(t.Background()).
+		Padding(0, 1).
+		Render(content)
 }
 
 func (m *editorCmp) SetSize(width, height int) tea.Cmd {
 	m.width = width
 	m.height = height
-	m.textarea.SetWidth(width - 3) // account for the prompt and padding right
-	m.textarea.SetHeight(height)
-	m.textarea.SetWidth(width)
+	innerWidth := width - 6
+	if innerWidth < 10 {
+		innerWidth = width - 2
+	}
+	m.textarea.SetWidth(innerWidth)
+	m.textarea.SetHeight(max(1, height-2))
 	return nil
 }
 

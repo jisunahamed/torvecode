@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -15,11 +12,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jisunahamed/torvecode/internal/app"
-	"github.com/jisunahamed/torvecode/internal/config"
 	"github.com/jisunahamed/torvecode/internal/message"
 	"github.com/jisunahamed/torvecode/internal/pubsub"
 	"github.com/jisunahamed/torvecode/internal/session"
-	"github.com/jisunahamed/torvecode/internal/tui/brand"
 	"github.com/jisunahamed/torvecode/internal/tui/components/dialog"
 	"github.com/jisunahamed/torvecode/internal/tui/styles"
 	"github.com/jisunahamed/torvecode/internal/tui/theme"
@@ -427,70 +422,19 @@ func (m *messagesCmp) help() string {
 func (m *messagesCmp) initialScreen() string {
 	t := theme.CurrentTheme()
 	base := styles.BaseStyle()
-	contentWidth := min(72, max(12, m.width-8))
 
-	wordmark := brand.Signature(m.width - 8)
-	subtitle := base.Foreground(t.TextMuted()).Render("Your next idea starts here.")
-
-	cwd, _ := os.Getwd()
-	folder := filepath.Base(cwd)
-	if folder == "." || folder == "" {
-		folder = cwd
-	}
-	modelName := string(config.Get().Agents[config.AgentCoder].Model)
-	workspace := lipgloss.NewStyle().
-		Width(contentWidth).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(t.BorderFocused()).
-		Padding(1, 2).
-		Render(lipgloss.JoinVertical(lipgloss.Left,
-			base.Bold(true).Foreground(t.Text()).Render("What are we building?"),
-			base.Foreground(t.TextMuted()).Render("Describe a change, explore this codebase, or fix a bug."),
-			"",
-			base.Foreground(t.Primary()).Render("⌁ "+folder)+
-				base.Foreground(t.TextMuted()).Render("   model "+modelName),
-		))
-
-	recent := ""
-	visible := 0
-	rows := make([]string, 0, 3)
-	for _, item := range m.recentSessions {
-		if item.ParentSessionID != "" || strings.TrimSpace(item.Title) == "" {
-			continue
-		}
-		title := item.Title
-		if len([]rune(title)) > 42 {
-			title = string([]rune(title)[:41]) + "…"
-		}
-		when := time.Unix(item.UpdatedAt, 0).Format("Jan 02  15:04")
-		rows = append(rows,
-			base.Foreground(t.TextMuted()).Width(14).Render(when)+
-				base.Foreground(t.Text()).Render(title),
-		)
-		visible++
-		if visible == 3 {
-			break
-		}
-	}
-	if len(rows) > 0 {
-		recent = lipgloss.JoinVertical(lipgloss.Left,
-			base.Foreground(t.Primary()).Bold(true).Render("Recent sessions"),
-			lipgloss.JoinVertical(lipgloss.Left, rows...),
-			base.Foreground(t.TextMuted()).Render("ctrl+s open all sessions   ctrl+n new session"),
-		)
-	} else {
-		recent = base.Foreground(t.TextMuted()).Render("Your sessions will stay here in this project.  ctrl+s opens history")
-	}
-
-	content := lipgloss.JoinVertical(lipgloss.Center,
-		wordmark,
-		subtitle,
-		"",
-		workspace,
-		"",
-		lipgloss.NewStyle().Width(contentWidth).Render(recent),
+	chevron := lipgloss.NewStyle().Foreground(t.Success()).Bold(true).Render("›")
+	heading := lipgloss.NewStyle().Foreground(t.Text()).Bold(true).Render("What can I help you build?")
+	sub := base.Foreground(t.TextMuted()).Render("Explore, edit and debug your codebase.")
+	welcome := lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Left, chevron+"  ", heading),
+		base.Render("   ")+sub,
 	)
-	return lipgloss.Place(m.width, max(1, m.height-1), lipgloss.Center, lipgloss.Center, content)
+
+	return lipgloss.NewStyle().
+		Width(m.width).
+		Padding(1, 1, 0, 1).
+		Render(welcome)
 }
 
 func (m *messagesCmp) rerender() {

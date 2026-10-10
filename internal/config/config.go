@@ -189,6 +189,11 @@ func Load(workingDir string, debug bool) (*Config, error) {
 	// Load and merge local config
 	mergeLocalConfig(workingDir)
 
+	// Lazy: local models discovered only if LOCAL_ENDPOINT is set and needed
+	if os.Getenv("LOCAL_ENDPOINT") != "" {
+		models.EnsureLocalModels()
+	}
+
 	setProviderDefaults()
 
 	// Apply configuration to the struct
@@ -271,7 +276,7 @@ func configureViper() {
 func setDefaults(debug bool) {
 	viper.SetDefault("data.directory", defaultDataDirectory)
 	viper.SetDefault("contextPaths", defaultContextPaths)
-	viper.SetDefault("tui.theme", "torve-amber")
+	viper.SetDefault("tui.theme", "torve")
 	viper.SetDefault("autoCompact", true)
 	viper.SetDefault("permissions.mode", string(PermissionModeDefault))
 

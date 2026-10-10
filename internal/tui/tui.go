@@ -33,6 +33,7 @@ type keyMap struct {
 	Filepicker    key.Binding
 	Models        key.Binding
 	SwitchTheme   key.Binding
+	ToggleSidebar key.Binding
 }
 
 type startCompactSessionMsg struct{}
@@ -78,6 +79,11 @@ var keys = keyMap{
 		key.WithKeys("ctrl+t"),
 		key.WithHelp("ctrl+t", "switch theme"),
 	),
+
+	ToggleSidebar: key.NewBinding(
+		key.WithKeys("ctrl+b"),
+		key.WithHelp("ctrl+b", "toggle sidebar"),
+	),
 }
 
 var helpEsc = key.NewBinding(
@@ -102,8 +108,10 @@ type appModel struct {
 	pages           map[page.PageID]tea.Model
 	loadedPages     map[page.PageID]bool
 	status          core.StatusCmp
+	header          core.HeaderCmp
 	app             *app.App
 	selectedSession session.Session
+	showSidebar     bool
 
 	showPermissions bool
 	permissions     dialog.PermissionDialogCmp
@@ -184,12 +192,14 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		msg.Height -= 1 // Make space for the status bar
 		a.width, a.height = msg.Width, msg.Height
-
-		s, _ := a.status.Update(msg)
+		headerH := core.HeaderHeight()
+		statusH := 1
+		contentH := max(1, msg.Height-headerH-statusH)
+		_ = a.header.SetSize(msg.Width, headerH)
+		s, _ := a.status.Update(tea.WindowSizeMsg{Width: msg.Width, Height: statusH})
 		a.status = s.(core.StatusCmp)
-		a.pages[a.currentPage], cmd = a.pages[a.currentPage].Update(msg)
+		a.pages[a.currentPage], cmd = a.pages[a.currentPage].Update(tea.WindowSizeMsg{Width: msg.Width, Height: contentH})
 		cmds = append(cmds, cmd)
 
 		prm, permCmd := a.permissions.Update(msg)
@@ -529,6 +539,14 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, a.themeDialog.Init()
 			}
 			return a, nil
+		case key.Matches(msg, keys.ToggleSidebar):
+			a.showSidebar = !a.showSidebar
+			if a.currentPage == page.ChatPage {
+				if cp, ok := a.pages[page.ChatPage].(interface{ SetSidebarVisible(bool) tea.Cmd }); ok {
+					return a, cp.SetSidebarVisible(a.showSidebar)
+				}
+			}
+			return a, nil
 		case key.Matches(msg, returnKey) || key.Matches(msg):
 			if msg.String() == quitKey {
 				if a.currentPage == page.LogsPage {
@@ -711,7 +729,9 @@ func (a *appModel) moveToPage(pageID page.PageID) tea.Cmd {
 }
 
 func (a appModel) View() string {
+	headerView := a.header.View()
 	components := []string{
+		headerView,
 		a.pages[a.currentPage].View(),
 	}
 
@@ -915,6 +935,8 @@ func New(app *app.App) tea.Model {
 		currentPage:   startPage,
 		loadedPages:   make(map[page.PageID]bool),
 		status:        core.NewStatusCmp(app.LSPClients),
+		header:        core.NewHeaderCmp(app),
+		showSidebar:   true,
 		help:          dialog.NewHelpCmp(),
 		quit:          dialog.NewQuitCmp(),
 		sessionDialog: dialog.NewSessionDialogCmp(),

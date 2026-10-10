@@ -49,7 +49,7 @@ to assist developers in writing, debugging, and understanding code directly from
   torve -p "Explain the use of context in Go" -f json
   `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// If the help flag is set, show the help message
+		// Fast paths — no auth, no DB, no network.
 		if cmd.Flag("help").Changed {
 			cmd.Help()
 			return nil
@@ -147,14 +147,17 @@ to assist developers in writing, debugging, and understanding code directly from
 		// Initialize MCP tools early for both modes
 		initMCPTools(ctx, app)
 
-		// Non-interactive mode
+	// Non-interactive mode
 		if prompt != "" {
-			// Run non-interactive flow using the App method
+			// Run non-interactive flow using the App method (needs full init — no TUI)
 			return app.RunNonInteractive(ctx, prompt, outputFormat, quiet, allowTools)
 		}
 
-		// Interactive mode
-		// Set up the TUI
+		// Interactive mode — TUI starts immediately; app is already ready.
+		// Heavy work (DB, catalog) is already done above. Future optimization:
+		// move DB.Connect + app.New before catalog fetch with a spinner, so
+		// TUI paints in <100ms even on cold catalog cache. Keeping sequential
+		// for correctness this batch — next batch will make it async.
 		zone.NewGlobal()
 		program := tea.NewProgram(
 			tui.New(app),

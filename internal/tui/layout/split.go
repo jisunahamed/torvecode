@@ -126,13 +126,23 @@ func (s *splitPaneLayout) View() string {
 }
 
 func (s *splitPaneLayout) SetSize(width, height int) tea.Cmd {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
 	s.width = width
 	s.height = height
 
 	var topHeight, bottomHeight int
 	if s.bottomPanel != nil {
-		topHeight = int(float64(height) * s.verticalRatio)
-		bottomHeight = height - topHeight
+		// Input composer: min 3, max 8, otherwise height/6
+		bottomHeight = height / 6
+		if bottomHeight < 3 {
+			bottomHeight = 3
+		}
+		if bottomHeight > 8 {
+			bottomHeight = 8
+		}
+		topHeight = height - bottomHeight
 	} else {
 		topHeight = height
 		bottomHeight = 0
@@ -140,8 +150,20 @@ func (s *splitPaneLayout) SetSize(width, height int) tea.Cmd {
 
 	var leftWidth, rightWidth int
 	if s.leftPanel != nil && s.rightPanel != nil {
-		leftWidth = int(float64(width) * s.ratio)
-		rightWidth = width - leftWidth
+		// Responsive: hide sidebar when narrow, clamp 24-28 cols when visible
+		if width < 80 {
+			leftWidth = width
+			rightWidth = 0
+		} else {
+			rightWidth = width * 24 / 100
+			if rightWidth < 24 {
+				rightWidth = 24
+			}
+			if rightWidth > 28 {
+				rightWidth = 28
+			}
+			leftWidth = width - rightWidth
+		}
 	} else if s.leftPanel != nil {
 		leftWidth = width
 		rightWidth = 0
