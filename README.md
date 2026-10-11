@@ -1,67 +1,129 @@
-# t/ Torvecode
+<p align="center">
+  <a href="https://opencode.ai">
+    <picture>
+      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
+      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
+      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+    </picture>
+  </a>
+</p>
+<p align="center">The open source AI coding agent.</p>
+<p align="center">
+  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
+  <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
+  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
+</p>
 
-Torvecode is Torve AI's lightweight coding agent for the terminal. The Go TUI includes streaming chat, reviewed file edits, shell tools, sessions, optional MCP and optional LSP. Models, quota and billing always come from the connected Torve AI account.
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.zh.md">简体中文</a> |
+  <a href="README.zht.md">繁體中文</a> |
+  <a href="README.ko.md">한국어</a> |
+  <a href="README.de.md">Deutsch</a> |
+  <a href="README.es.md">Español</a> |
+  <a href="README.fr.md">Français</a> |
+  <a href="README.it.md">Italiano</a> |
+  <a href="README.da.md">Dansk</a> |
+  <a href="README.ja.md">日本語</a> |
+  <a href="README.pl.md">Polski</a> |
+  <a href="README.ru.md">Русский</a> |
+  <a href="README.bs.md">Bosanski</a> |
+  <a href="README.ar.md">العربية</a> |
+  <a href="README.no.md">Norsk</a> |
+  <a href="README.br.md">Português (Brasil)</a> |
+  <a href="README.th.md">ไทย</a> |
+  <a href="README.tr.md">Türkçe</a> |
+  <a href="README.uk.md">Українська</a> |
+  <a href="README.bn.md">বাংলা</a> |
+  <a href="README.gr.md">Ελληνικά</a> |
+  <a href="README.vi.md">Tiếng Việt</a>
+</p>
 
-## Install and connect
+[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
 
-```sh
-npm install -g @torveai/cli
-torve auth login
-torve
+---
+
+### Installation
+
+```bash
+# YOLO
+curl -fsSL https://opencode.ai/install | bash
+
+# Package managers
+npm i -g opencode-ai@latest        # or bun/pnpm/yarn
+scoop install opencode             # Windows
+choco install opencode             # Windows
+brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
+brew install opencode              # macOS and Linux (official brew formula, updated less)
+sudo pacman -S opencode            # Arch Linux (Stable)
+paru -S opencode-bin               # Arch Linux (Latest from AUR)
+mise use -g opencode               # Any OS
+nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
 ```
 
-Use an existing Torve AI API key with `torve auth login --api-key`. For CI or a temporary shell:
+> [!TIP]
+> Remove versions older than 0.1.x before installing.
 
-```sh
-TORVE_API_KEY=sk-trv-... torve run "review this repository"
+### Desktop App (BETA)
+
+OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
+
+| Platform              | Download                           |
+| --------------------- | ---------------------------------- |
+| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
+| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
+| Windows               | `opencode-desktop-windows-x64.exe` |
+| Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
+
+```bash
+# macOS (Homebrew)
+brew install --cask opencode-desktop
+# Windows (Scoop)
+scoop bucket add extras; scoop install extras/opencode-desktop
 ```
 
-Other release channels:
+#### Installation Directory
 
-```sh
-brew install torveai/tap/torvecode
-go install github.com/jisunahamed/torvecode/cmd/torve@latest
+The install script respects the following priority order for the installation path:
+
+1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
+2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
+3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
+4. `$HOME/.opencode/bin` - Default fallback
+
+```bash
+# Examples
+OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
 ```
 
-## Commands
+### Agents
 
-```text
-torve                         interactive session
-torve auth login              website device authorization
-torve auth login --api-key    validate and securely store an API key
-torve auth status             validate the active credential
-torve auth logout             revoke/remove a saved session
-torve models                  list available models, tools and image input
-torve skills create NAME      create a project SKILL.md template
-torve skills add NAME FILE    add an existing local SKILL.md
-torve skills list             list project and personal skills
-torve documents status        check the optional MarkItDown integration
-torve documents convert FILE  convert a document to Markdown
-torve run "PROMPT"            non-interactive; tools denied by default
-torve run --allow-tools "..." non-interactive with tools enabled
-torve doctor                  diagnose installation and connectivity
-torve update                  review, edit or install an npm update
-torve update --check          check the beta channel without installing
-```
+OpenCode includes two built-in agents you can switch between with the `Tab` key.
 
-In the interactive UI, type `/` to search commands. Use `/image` or `Ctrl+F` to attach an image file. `Ctrl+V` automatically pastes clipboard text or attaches a copied image.
+- **build** - Default, full-access agent for development work
+- **plan** - Read-only agent for analysis and code exploration
+  - Denies file edits by default
+  - Asks permission before running bash commands
+  - Ideal for exploring unfamiliar codebases or planning changes
 
-For npm installations, `torve update` shows the current and available versions plus the release changes link. Choose **Update**, **Edit target**, or **Cancel** before installation. Editing accepts a channel such as `beta` or `latest`, or an exact version. Because the npm launcher handles the update before starting `torve.exe`, Windows can replace the binary without locking the current process. Close any other Torvecode windows first.
+Also included is a **general** subagent for complex searches and multistep tasks.
+This is used internally and can be invoked using `@general` in messages.
 
-The status bar shows the latest request's input and output tokens, effective context usage and cost when catalog pricing is available. Torvecode automatically compacts long sessions before the account's TPM budget becomes too small for a useful response; `/compact` remains available for manual control. Reasoning-capable OpenAI-compatible models show a live `Thinking...` state and accept streamed `reasoning_content` or `reasoning` events.
+Learn more about [agents](https://opencode.ai/docs/agents).
 
-PDF, Word, PowerPoint, Excel and other document inputs use Microsoft's optional [MarkItDown](https://github.com/microsoft/markitdown) converter. Install Python 3.10+ and then install it locally:
+### Documentation
 
-```sh
-pip install "markitdown[pdf,docx,pptx,xlsx,xls,outlook]"
-```
+For more info on how to configure OpenCode, [**head over to our docs**](https://opencode.ai/docs).
 
-Torvecode reports plan-specific RPM, TPM, concurrency, monthly quota and account-balance errors directly. It does not retry a request that the current plan cannot admit.
+### Contributing
 
-Set `TORVE_API_URL` and `TORVE_WEB_URL` for local/staging development. `NO_COLOR` disables color. Torvecode reads `.torvecode.json` and stores project history in `.torvecode`; it never imports old OpenCode configuration automatically.
+If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
 
-Project skills are stored in `.torvecode/skills/NAME/SKILL.md`. Add `--global` to a skills command to use your personal Torvecode skills directory.
+### Building on OpenCode
 
-Documentation: [user guide](docs/USER_GUIDE.md), [authentication](docs/AUTHENTICATION.md), [development](docs/DEVELOPMENT.md), [release](docs/RELEASE.md), [troubleshooting](docs/TROUBLESHOOTING.md), [maintenance and privacy](docs/MAINTENANCE_PRIVACY.md), and [upstream provenance](UPSTREAM.md).
+If you are working on a project that's related to OpenCode and is using "opencode" as part of its name, for example "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
 
-Torvecode retains the upstream MIT license in [LICENSE](LICENSE).
+---
+
+**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
