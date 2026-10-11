@@ -186,6 +186,18 @@ async function main() {
     return 1;
   }
 
+  // npm packages created on Windows store native Unix binaries as 0644. Make
+  // the optional platform binary executable after installation so macOS and
+  // Linux launches do not fail with EACCES.
+  if (process.platform !== 'win32') {
+    try {
+      fs.chmodSync(executable, 0o755);
+    } catch (error) {
+      console.error(`Could not make the Torvecode binary executable: ${error.message}`);
+      return 1;
+    }
+  }
+
   // Interactive terminal programs must not run through spawnSync. On Windows,
   // the synchronous wrapper can keep the child from receiving terminal input,
   // resize and Ctrl+C events, leaving users on a blank screen while the native
