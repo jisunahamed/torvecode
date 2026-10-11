@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@torveai/cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -89,11 +89,11 @@
     "url": "https://github.com/jisunahamed/torvecode"
   },
   "optionalDependencies": {
-    "@torveai/cli-darwin-arm64": "1.0.0",
-    "@torveai/cli-darwin-x64": "1.0.0",
-    "@torveai/cli-linux-arm64": "1.0.0",
-    "@torveai/cli-linux-x64": "1.0.0",
-    "@torveai/cli-win32-arm64": "1.0.0",
-    "@torveai/cli-win32-x64": "1.0.0"
+    "@torveai/cli-darwin-arm64": "1.0.1",
+    "@torveai/cli-darwin-x64": "1.0.1",
+    "@torveai/cli-linux-arm64": "1.0.1",
+    "@torveai/cli-linux-x64": "1.0.1",
+    "@torveai/cli-win32-arm64": "1.0.1",
+    "@torveai/cli-win32-x64": "1.0.1"
   }
 }
