@@ -148,6 +148,57 @@ type appModel struct {
 	compactingMessage string
 }
 
+func (a *appModel) hasOverlay() bool {
+	return a.showPermissions || a.showHelp || a.showQuit || a.showSessionDialog ||
+		a.showCommandDialog || a.showModelDialog || a.showInitDialog ||
+		a.showFilepicker || a.showThemeDialog || a.showMultiArgumentsDialog
+}
+
+// closeOverlay closes the active, non-permission overlay. Permission prompts are
+// routed to their component so Escape can explicitly deny the pending action.
+func (a *appModel) closeOverlay() (bool, tea.Cmd) {
+	switch {
+	case a.showQuit:
+		a.showQuit = false
+	case a.showHelp:
+		a.showHelp = false
+	case a.showFilepicker:
+		a.showFilepicker = false
+		a.filepicker.ToggleFilepicker(false)
+	case a.showThemeDialog:
+		a.showThemeDialog = false
+	case a.showModelDialog:
+		a.showModelDialog = false
+	case a.showCommandDialog:
+		a.showCommandDialog = false
+	case a.showSessionDialog:
+		a.showSessionDialog = false
+	case a.showInitDialog:
+		a.showInitDialog = false
+		if err := config.MarkProjectInitialized(); err != nil {
+			return true, util.ReportError(err)
+		}
+	default:
+		return false, nil
+	}
+	return true, nil
+}
+
+func (a *appModel) closeNonPermissionOverlays() {
+	a.showHelp = false
+	a.showQuit = false
+	a.showSessionDialog = false
+	a.showCommandDialog = false
+	a.showModelDialog = false
+	a.showThemeDialog = false
+	a.showInitDialog = false
+	a.showMultiArgumentsDialog = false
+	if a.showFilepicker {
+		a.showFilepicker = false
+		a.filepicker.ToggleFilepicker(false)
+	}
+}
+
 func (a appModel) Init() tea.Cmd {
 	var cmds []tea.Cmd
 	cmd := a.pages[a.currentPage].Init()
@@ -283,6 +334,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Permission
 	case pubsub.Event[permission.PermissionRequest]:
+		a.closeNonPermissionOverlays()
 		a.showPermissions = true
 		return a, a.permissions.SetPermissions(msg.Payload)
 	case dialog.PermissionResponseMsg:
@@ -314,7 +366,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case dialog.OpenCommandDialogMsg:
-		if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions {
+		if a.currentPage == page.ChatPage && !a.hasOverlay() {
 			a.commandDialog.SetCommands(a.commands)
 			a.showCommandDialog = true
 		}
@@ -388,7 +440,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, util.ReportInfo(fmt.Sprintf("Model changed to %s", model.Name))
 
 	case dialog.ShowInitDialogMsg:
-		a.showInitDialog = msg.Show
+		a.showInitDialog = msg.Show && !a.hasOverlay()
 		return a, nil
 
 	case dialog.CloseInitDialogMsg:
@@ -474,29 +526,17 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 
 		case key.Matches(msg, keys.Quit):
-			a.showQuit = !a.showQuit
-			if a.showHelp {
-				a.showHelp = false
+			if a.showPermissions {
+				p, permissionCmd := a.permissions.Update(tea.KeyMsg{Type: tea.KeyEsc})
+				a.permissions = p.(dialog.PermissionDialogCmp)
+				return a, permissionCmd
 			}
-			if a.showSessionDialog {
-				a.showSessionDialog = false
-			}
-			if a.showCommandDialog {
-				a.showCommandDialog = false
-			}
-			if a.showFilepicker {
-				a.showFilepicker = false
-				a.filepicker.ToggleFilepicker(a.showFilepicker)
-			}
-			if a.showModelDialog {
-				a.showModelDialog = false
-			}
-			if a.showMultiArgumentsDialog {
-				a.showMultiArgumentsDialog = false
-			}
+			showQuit := !a.showQuit
+			a.closeNonPermissionOverlays()
+			a.showQuit = showQuit
 			return a, nil
 		case key.Matches(msg, keys.SwitchSession):
-			if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions && !a.showCommandDialog {
+			if a.currentPage == page.ChatPage && !a.hasOverlay() {
 				// Load sessions and show the dialog
 				sessions, err := a.app.Sessions.List(context.Background())
 				if err != nil {
@@ -511,7 +551,7 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		case key.Matches(msg, keys.Commands):
-			if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions && !a.showSessionDialog && !a.showThemeDialog && !a.showFilepicker {
+			if a.currentPage == page.ChatPage && !a.hasOverlay() {
 				// Show commands dialog
 				if len(a.commands) == 0 {
 					return a, util.ReportWarn("No commands available")
@@ -522,17 +562,13 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, nil
 		case key.Matches(msg, keys.Models):
-			if a.showModelDialog {
-				a.showModelDialog = false
-				return a, nil
-			}
-			if a.currentPage == page.ChatPage && !a.showQuit && !a.showPermissions && !a.showSessionDialog && !a.showCommandDialog {
+			if a.currentPage == page.ChatPage && !a.hasOverlay() {
 				a.showModelDialog = true
 				return a, nil
 			}
 			return a, nil
 		case key.Matches(msg, keys.SwitchTheme):
-			if !a.showQuit && !a.showPermissions && !a.showSessionDialog && !a.showCommandDialog {
+			if a.currentPage == page.ChatPage && !a.hasOverlay() {
 				// Show theme switcher dialog
 				a.showThemeDialog = true
 				// Theme list is dynamically loaded by the dialog component
@@ -547,56 +583,44 @@ func (a appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return a, nil
-		case key.Matches(msg, returnKey) || key.Matches(msg):
+		case key.Matches(msg, returnKey):
 			if msg.String() == quitKey {
 				if a.currentPage == page.LogsPage {
 					return a, a.moveToPage(page.ChatPage)
 				}
-			} else if !a.filepicker.IsCWDFocused() {
-				if a.showQuit {
-					a.showQuit = !a.showQuit
-					return a, nil
-				}
-				if a.showHelp {
-					a.showHelp = !a.showHelp
-					return a, nil
-				}
-				if a.showInitDialog {
-					a.showInitDialog = false
-					// Mark the project as initialized without running the command
-					if err := config.MarkProjectInitialized(); err != nil {
-						return a, util.ReportError(err)
-					}
-					return a, nil
-				}
-				if a.showFilepicker {
-					a.showFilepicker = false
-					a.filepicker.ToggleFilepicker(a.showFilepicker)
-					return a, nil
+			} else if !a.showPermissions && !a.filepicker.IsCWDFocused() {
+				if closed, closeCmd := a.closeOverlay(); closed {
+					return a, closeCmd
 				}
 				if a.currentPage == page.LogsPage {
 					return a, a.moveToPage(page.ChatPage)
 				}
 			}
 		case key.Matches(msg, keys.Logs):
+			if a.hasOverlay() {
+				return a, nil
+			}
 			return a, a.moveToPage(page.LogsPage)
 		case key.Matches(msg, keys.Help):
-			if a.showQuit {
+			if a.hasOverlay() {
 				return a, nil
 			}
 			a.showHelp = !a.showHelp
 			return a, nil
 		case key.Matches(msg, helpEsc):
 			if a.app.CoderAgent.IsBusy() {
-				if a.showQuit {
+				if a.hasOverlay() && !a.showHelp {
 					return a, nil
 				}
 				a.showHelp = !a.showHelp
 				return a, nil
 			}
 		case key.Matches(msg, keys.Filepicker):
-			a.showFilepicker = !a.showFilepicker
-			a.filepicker.ToggleFilepicker(a.showFilepicker)
+			if a.currentPage == page.ChatPage && !a.hasOverlay() {
+				a.showFilepicker = true
+				a.filepicker.ToggleFilepicker(true)
+				return a, nil
+			}
 			return a, nil
 		}
 	default:

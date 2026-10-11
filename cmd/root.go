@@ -65,7 +65,11 @@ to assist developers in writing, debugging, and understanding code directly from
 		if prompt == "" {
 			fmt.Fprintln(os.Stderr, "\x1b[38;2;163;230;53m◆\x1b[0m \x1b[1mTorveCode\x1b[0m  Starting workspace…")
 		}
-		startupCtx, startupCancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+		// Keep credential recovery and the first catalog request below the five
+		// second interactive launch budget. Cached launches normally complete in
+		// milliseconds; these deadlines prevent a slow keychain or network from
+		// holding the terminal blank.
+		startupCtx, startupCancel := context.WithTimeout(cmd.Context(), 2*time.Second)
 		credential, err := auth.ResolveContext(startupCtx)
 		startupCancel()
 		if err != nil {
@@ -77,7 +81,7 @@ to assist developers in writing, debugging, and understanding code directly from
 				return err
 			}
 		}
-		catalogCtx, catalogCancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+		catalogCtx, catalogCancel := context.WithTimeout(cmd.Context(), 2*time.Second)
 		defer catalogCancel()
 		catalog, err := auth.FetchModelsCached(catalogCtx, credential)
 		if err != nil {

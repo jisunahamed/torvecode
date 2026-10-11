@@ -47,6 +47,7 @@ type permissionsMapping struct {
 	AllowSession key.Binding
 	Deny         key.Binding
 	Tab          key.Binding
+	Escape       key.Binding
 }
 
 var permissionsKeys = permissionsMapping{
@@ -77,6 +78,10 @@ var permissionsKeys = permissionsMapping{
 	Tab: key.NewBinding(
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "switch options"),
+	),
+	Escape: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "deny and close"),
 	),
 }
 
@@ -121,6 +126,8 @@ func (p *permissionDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, permissionsKeys.AllowSession):
 			return p, util.CmdHandler(PermissionResponseMsg{Action: PermissionAllowForSession, Permission: p.permission})
 		case key.Matches(msg, permissionsKeys.Deny):
+			return p, util.CmdHandler(PermissionResponseMsg{Action: PermissionDeny, Permission: p.permission})
+		case key.Matches(msg, permissionsKeys.Escape):
 			return p, util.CmdHandler(PermissionResponseMsg{Action: PermissionDeny, Permission: p.permission})
 		default:
 			// Pass other keys to viewport

@@ -31,6 +31,7 @@ type helpMapping struct {
 	Yes        key.Binding
 	No         key.Binding
 	Tab        key.Binding
+	Escape     key.Binding
 }
 
 var helpKeys = helpMapping{
@@ -54,6 +55,10 @@ var helpKeys = helpMapping{
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "switch options"),
 	),
+	Escape: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("esc", "cancel"),
+	),
 }
 
 func (q *quitDialogCmp) Init() tea.Cmd {
@@ -75,6 +80,8 @@ func (q *quitDialogCmp) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, helpKeys.Yes):
 			return q, tea.Quit
 		case key.Matches(msg, helpKeys.No):
+			return q, util.CmdHandler(CloseQuitMsg{})
+		case key.Matches(msg, helpKeys.Escape):
 			return q, util.CmdHandler(CloseQuitMsg{})
 		}
 	}
@@ -114,6 +121,8 @@ func (q *quitDialogCmp) View() string {
 			question,
 			"",
 			buttons,
+			"",
+			baseStyle.Foreground(t.TextMuted()).Render("←/→ choose  ·  enter confirm  ·  esc cancel"),
 		),
 	)
 
