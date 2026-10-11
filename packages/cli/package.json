@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "bin": {
-    "torve": "./bin/torve.js"
+    "torve": "./bin/torve.cjs"
   },
   "files": [
     "bin",
