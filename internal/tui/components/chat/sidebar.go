@@ -144,13 +144,13 @@ func (m *sidebarCmp) View() string {
 	}
 	mfSection := lipgloss.JoinVertical(lipgloss.Left, mfHeading, mfBody)
 
-	// Diagnostics — static placeholder; real LSP state lives in status bar (see core/status.go).
+	// Diagnostics details are owned by the status component, which has the live
+	// LSP clients. Keep this panel honest instead of fabricating a ready state.
 	diagIcon := lipgloss.NewStyle().Foreground(t.Success()).Render("∿")
 	diagHeading := lipgloss.JoinHorizontal(lipgloss.Left, diagIcon+" ", baseStyle.Foreground(t.TextMuted()).Width(contentW-2).Render("DIAGNOSTICS"))
 	diagSection := lipgloss.JoinVertical(lipgloss.Left,
 		diagHeading,
-		lipgloss.NewStyle().Foreground(t.Success()).Render("  ✓ ")+baseStyle.Foreground(t.Text()).Render("No issues"),
-		baseStyle.Foreground(t.TextMuted()).Render("    LSP ready"),
+		baseStyle.Foreground(t.TextMuted()).Render("No diagnostics"),
 	)
 
 	sepStyle := lipgloss.NewStyle().Foreground(t.BorderDim())

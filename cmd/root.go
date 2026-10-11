@@ -60,7 +60,14 @@ to assist developers in writing, debugging, and understanding code directly from
 		}
 
 		prompt, _ := cmd.Flags().GetString("prompt")
-		credential, err := auth.Resolve()
+		// Give interactive launches immediate visual feedback. This line is
+		// replaced by the alternate-screen TUI as soon as initialization finishes.
+		if prompt == "" {
+			fmt.Fprintln(os.Stderr, "\x1b[38;2;163;230;53m◆\x1b[0m \x1b[1mTorveCode\x1b[0m  Starting workspace…")
+		}
+		startupCtx, startupCancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+		credential, err := auth.ResolveContext(startupCtx)
+		startupCancel()
 		if err != nil {
 			if prompt != "" {
 				return err
@@ -70,7 +77,9 @@ to assist developers in writing, debugging, and understanding code directly from
 				return err
 			}
 		}
-		catalog, err := auth.FetchModelsCached(cmd.Context(), credential)
+		catalogCtx, catalogCancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+		defer catalogCancel()
+		catalog, err := auth.FetchModelsCached(catalogCtx, credential)
 		if err != nil {
 			return fmt.Errorf("authenticate Torve AI: %w", err)
 		}
@@ -147,7 +156,7 @@ to assist developers in writing, debugging, and understanding code directly from
 		// Initialize MCP tools early for both modes
 		initMCPTools(ctx, app)
 
-	// Non-interactive mode
+		// Non-interactive mode
 		if prompt != "" {
 			// Run non-interactive flow using the App method (needs full init — no TUI)
 			return app.RunNonInteractive(ctx, prompt, outputFormat, quiet, allowTools)

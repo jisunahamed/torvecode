@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -275,9 +274,6 @@ func (m *messagesCmp) renderView() {
 				messages...,
 			),
 		)
-	if missing := m.viewport.Height - lipgloss.Height(content); missing > 0 {
-		content = strings.Repeat("\n", missing) + content
-	}
 	m.viewport.SetContent(content)
 }
 
@@ -292,14 +288,13 @@ func (m *messagesCmp) View() string {
 					lipgloss.Top,
 					"Loading...",
 					m.working(),
-					m.help(),
 				),
 			)
 	}
 	if len(m.messages) == 0 {
 		content := baseStyle.
 			Width(m.width).
-			Height(m.height - 2).
+			Height(m.height).
 			Render(
 				m.initialScreen(),
 			)
@@ -310,7 +305,6 @@ func (m *messagesCmp) View() string {
 				lipgloss.JoinVertical(
 					lipgloss.Top,
 					content,
-					m.help(),
 				),
 			)
 	}
@@ -322,7 +316,6 @@ func (m *messagesCmp) View() string {
 				lipgloss.Top,
 				m.viewport.View(),
 				m.working(),
-				m.help(),
 			),
 		)
 }
@@ -450,7 +443,7 @@ func (m *messagesCmp) SetSize(width, height int) tea.Cmd {
 	m.width = width
 	m.height = height
 	m.viewport.Width = width
-	m.viewport.Height = height - 2
+	m.viewport.Height = max(1, height-1)
 	m.attachments.Width = width
 	m.attachments.Height = 3
 	m.rerender()

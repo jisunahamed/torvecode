@@ -55,6 +55,13 @@ func WebURL() string {
 
 // Resolve never silently falls back when TORVE_API_KEY is explicitly supplied.
 func Resolve() (Credential, error) {
+	return ResolveContext(context.Background())
+}
+
+// ResolveContext resolves a credential while respecting the caller's startup
+// deadline. Interactive startup must never disappear behind an unbounded token
+// refresh when the network is unavailable.
+func ResolveContext(ctx context.Context) (Credential, error) {
 	if token, ok := os.LookupEnv("TORVE_API_KEY"); ok {
 		if strings.TrimSpace(token) == "" {
 			return Credential{}, errors.New("TORVE_API_KEY is set but empty")
@@ -66,7 +73,7 @@ func Resolve() (Credential, error) {
 		return Credential{}, errors.New("not signed in; run `torve auth login` or set TORVE_API_KEY")
 	}
 	if credential.RefreshToken != "" && !credential.ExpiresAt.IsZero() && time.Now().Add(time.Minute).After(credential.ExpiresAt) {
-		credential, err = Refresh(context.Background(), credential.RefreshToken)
+		credential, err = Refresh(ctx, credential.RefreshToken)
 		if err != nil {
 			return Credential{}, fmt.Errorf("saved session expired: %w", err)
 		}
@@ -170,7 +177,7 @@ func requestJSON(ctx context.Context, method, endpoint, token string, body any, 
 	if token != "" {
 		req.Header.Set("authorization", "Bearer "+token)
 	}
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

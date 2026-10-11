@@ -40,7 +40,7 @@ func FetchModels(ctx context.Context, credential Credential) ([]CatalogModel, er
 	}
 	req.Header.Set("authorization", "Bearer "+credential.AccessToken)
 	req.Header.Set("accept", "application/json")
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +71,18 @@ func FetchModelsCached(ctx context.Context, credential Credential) ([]CatalogMod
 	if entries, ok := loadCatalogCache(credential); ok {
 		return entries, nil
 	}
+	// A stale credential-scoped catalog is still sufficient to paint the TUI and
+	// start a session. Refresh it in the background instead of making every cold
+	// launch wait on the network. Inference remains server-authorized, so stale
+	// catalog data cannot grant model access.
+	if entries, ok := loadCatalogCacheStale(credential); ok {
+		go func() {
+			refreshCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = FetchModels(refreshCtx, credential)
+		}()
+		return entries, nil
+	}
 	return FetchModels(ctx, credential)
 }
 
@@ -99,19 +111,35 @@ func catalogCachePath() (string, error) {
 }
 
 func loadCatalogCache(credential Credential) ([]CatalogModel, bool) {
-	path, err := catalogCachePath()
-	if err != nil {
-		return nil, false
-	}
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return nil, false
-	}
-	var cache catalogCache
-	if json.Unmarshal(payload, &cache) != nil || cache.Version != catalogCacheVersion || cache.Credential != catalogCredentialID(credential) || time.Since(cache.FetchedAt) > catalogCacheTTL || len(cache.Models) == 0 {
+	cache, ok := readCatalogCache(credential)
+	if !ok || time.Since(cache.FetchedAt) > catalogCacheTTL {
 		return nil, false
 	}
 	return cache.Models, true
+}
+
+func loadCatalogCacheStale(credential Credential) ([]CatalogModel, bool) {
+	cache, ok := readCatalogCache(credential)
+	if !ok {
+		return nil, false
+	}
+	return cache.Models, true
+}
+
+func readCatalogCache(credential Credential) (catalogCache, bool) {
+	path, err := catalogCachePath()
+	if err != nil {
+		return catalogCache{}, false
+	}
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return catalogCache{}, false
+	}
+	var cache catalogCache
+	if json.Unmarshal(payload, &cache) != nil || cache.Version != catalogCacheVersion || cache.Credential != catalogCredentialID(credential) || len(cache.Models) == 0 {
+		return catalogCache{}, false
+	}
+	return cache, true
 }
 
 func saveCatalogCache(credential Credential, entries []CatalogModel) error {

@@ -93,12 +93,6 @@ func (p *chatPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return p, cmd
 		}
 	case chat.SessionSelectedMsg:
-		if p.session.ID == "" {
-			cmd := p.setSidebar()
-			if cmd != nil {
-				cmds = append(cmds, cmd)
-			}
-		}
 		p.session = msg
 	case tea.KeyMsg:
 		switch {
@@ -107,10 +101,7 @@ func (p *chatPage) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Continue sending keys to layout->chat
 		case key.Matches(msg, keyMap.NewSession):
 			p.session = session.Session{}
-			return p, tea.Batch(
-				p.clearSidebar(),
-				util.CmdHandler(chat.SessionClearedMsg{}),
-			)
+			return p, util.CmdHandler(chat.SessionClearedMsg{})
 		case key.Matches(msg, keyMap.Cancel):
 			if p.session.ID != "" {
 				// Cancel the current session's generation process
@@ -252,6 +243,10 @@ func NewChatPage(app *app.App) tea.Model {
 	editorContainer := layout.NewContainer(
 		chat.NewEditorCmp(app),
 	)
+	sidebarContainer := layout.NewContainer(
+		chat.NewSidebarCmp(session.Session{}, app.History),
+		layout.WithPadding(1, 1, 1, 1),
+	)
 	return &chatPage{
 		app:              app,
 		editor:           editorContainer,
@@ -259,6 +254,7 @@ func NewChatPage(app *app.App) tea.Model {
 		completionDialog: completionDialog,
 		layout: layout.NewSplitPane(
 			layout.WithLeftPanel(messagesContainer),
+			layout.WithRightPanel(sidebarContainer),
 			layout.WithBottomPanel(editorContainer),
 		),
 	}

@@ -271,7 +271,7 @@ func (m *editorCmp) View() string {
 
 	// Hint pills — only when wide
 	hints := ""
-	if m.width >= 70 {
+	if m.width >= 100 {
 		pillStyle := lipgloss.NewStyle().
 			Background(t.BackgroundSecondary()).
 			Foreground(t.TextMuted()).

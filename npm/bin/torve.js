@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline/promises');
@@ -186,13 +186,29 @@ async function main() {
     return 1;
   }
 
-  const result = spawnSync(executable, args, { stdio: 'inherit', windowsHide: false });
-  if (result.error) {
-    console.error(`Could not start Torvecode: ${result.error.message}`);
-    return 1;
-  }
-  if (result.signal) process.kill(process.pid, result.signal);
-  return result.status == null ? 1 : result.status;
+  // Interactive terminal programs must not run through spawnSync. On Windows,
+  // the synchronous wrapper can keep the child from receiving terminal input,
+  // resize and Ctrl+C events, leaving users on a blank screen while the native
+  // process is alive. Keep npm's tiny launcher asynchronous and inherit the
+  // terminal directly.
+  return await new Promise((resolve) => {
+    const child = spawn(executable, args, {
+      stdio: 'inherit',
+      windowsHide: false,
+      windowsVerbatimArguments: false
+    });
+    child.once('error', (error) => {
+      console.error(`Could not start Torvecode: ${error.message}`);
+      resolve(1);
+    });
+    child.once('exit', (code, signal) => {
+      if (signal && process.platform !== 'win32') {
+        process.kill(process.pid, signal);
+        return;
+      }
+      resolve(code == null ? 1 : code);
+    });
+  });
 }
 
 main()
