@@ -1,6 +1,5 @@
 /** @jsxImportSource @opentui/solid */
-// Split-footer status shown while a freshly launched CLI replaces a
-// version-mismatched background service before the TUI attaches.
+// Split-footer status shown while a freshly launched CLI prepares the TUI.
 import { createCliRenderer, RGBA, TextAttributes, type CliRenderer } from "@opentui/core"
 import { render, useTerminalDimensions } from "@opentui/solid"
 import { OPENCODE_VERSION } from "../version"
@@ -22,10 +21,10 @@ import {
   untrack,
 } from "solid-js"
 
-const stages = ["Keeping your session safe", "Starting the new background service", "Loading OpenCode"] as const
-const stageFloor = 480
-const transitionDuration = 420
-const completionHold = 650
+const stages = ["Preparing TorveCode", "Starting the local service", "Loading your workspace"] as const
+const stageFloor = 150
+const transitionDuration = 160
+const completionHold = 100
 
 export type Handle = {
   readonly begin: (from?: string) => boolean
@@ -41,7 +40,7 @@ export const make = (): Handle => {
     begin: (from) => {
       if (!process.stdout.isTTY || !process.stdin.isTTY) return false
       session ??= open(from).catch(() => {
-        process.stderr.write("Restarting background server (version mismatch)...\n")
+        process.stderr.write("TorveCode startup screen unavailable; continuing without it.\n")
         return undefined
       })
       return true
@@ -176,13 +175,13 @@ async function open(from?: string): Promise<Session> {
 }
 
 const colors = {
-  accent: RGBA.fromHex("#a6b8ff"),
-  accentBright: RGBA.fromHex("#eef1ff"),
-  accentDim: RGBA.fromHex("#596998"),
+  accent: RGBA.fromHex("#A3E635"),
+  accentBright: RGBA.fromHex("#E4FFB3"),
+  accentDim: RGBA.fromHex("#52791B"),
   error: RGBA.fromHex("#ff8192"),
-  muted: RGBA.fromHex("#808080"),
-  success: RGBA.fromHex("#8bd5a5"),
-  text: RGBA.fromHex("#eeeeee"),
+  muted: RGBA.fromHex("#8EA39A"),
+  success: RGBA.fromHex("#A3E635"),
+  text: RGBA.fromHex("#F1F5F1"),
 }
 
 const monogram = go.right.slice(1)
@@ -325,8 +324,8 @@ function UpdateFooter(props: {
   const statusSweep = createSweep()
   const runningHeader = () =>
     phrase(
-      ["OpenCode", colors.muted, true],
-      ["is updating", colors.muted],
+      ["TorveCode", colors.muted, true],
+      [props.from ? "is updating" : "is starting", colors.muted],
       ...(props.from
         ? ([
             ["from", colors.muted],
@@ -337,11 +336,11 @@ function UpdateFooter(props: {
       [OPENCODE_VERSION, colors.accent],
     )
   const completedHeader = phrase(
-    ["OpenCode", colors.muted, true],
-    ["updated to", colors.muted],
-    [OPENCODE_VERSION, colors.accent],
+    ["TorveCode", colors.muted, true],
+    [props.from ? "updated to" : "is ready", colors.muted],
+    ...(props.from ? ([[OPENCODE_VERSION, colors.accent]] as const) : []),
   )
-  const pausedHeader = phrase(["OpenCode", colors.muted, true], ["update paused", colors.muted])
+  const pausedHeader = phrase(["TorveCode", colors.muted, true], ["couldn't start", colors.muted])
   const outcomeStatus = () =>
     props.outcome() === "success"
       ? [...styled("✓", colors.success), ...styled(" Ready", colors.text)]

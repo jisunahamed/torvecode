@@ -29,7 +29,6 @@ import solarized from "./assets/solarized.json" with { type: "json" }
 import synthwave84 from "./assets/synthwave84.json" with { type: "json" }
 import tokyonight from "./assets/tokyonight.json" with { type: "json" }
 import vercel from "./assets/vercel.json" with { type: "json" }
-import torve from "./assets/torve.json" with { type: "json" }
 import vesper from "./assets/vesper.json" with { type: "json" }
 import zenburn from "./assets/zenburn.json" with { type: "json" }
 
@@ -64,7 +63,6 @@ export const DEFAULT_THEMES: Record<string, ThemeV1Json> = {
   solarized,
   synthwave84,
   tokyonight,
-  torve,
   vesper,
   vercel,
   zenburn,

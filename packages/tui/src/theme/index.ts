@@ -40,7 +40,6 @@ function listThemes(): Record<string, ThemeDocumentSource> {
   const themes: Record<string, ThemeDocumentSource> = {
     ...DEFAULT_THEMES,
     torve: getTorveTheme(),
-    opencode: getOpenCodeTheme(),
     ...customThemes,
   }
   return {

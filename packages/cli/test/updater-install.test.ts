@@ -23,6 +23,7 @@ function fixture(
   failCleanup = false,
   releasePackage = name,
   formula?: string,
+  torvePlatformBinary = false,
 ) {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -30,14 +31,29 @@ function fixture(
     const root = yield* fs.makeTempDirectoryScoped({ prefix: "opencode-updater-" })
     const execPath = process.execPath
     const modules = path.join(root, "node_modules")
+    const packageDir = torvePlatformBinary
+      ? path.join(modules, "@torveai", "cli")
+      : path.join(modules, "@opencode", "cli")
     const executable = formula
       ? path.join(root, "Cellar", formula, "2.0.20", "bin", "opencode")
-      : path.join(modules, "@opencode", "cli", "bin", "opencode")
+      : torvePlatformBinary
+        ? path.join(packageDir, "node_modules", "@torveai", "cli-win32-x64", "bin", "torve.exe")
+        : path.join(packageDir, "bin", "opencode")
     yield* fs.makeDirectory(path.dirname(executable), { recursive: true })
     yield* fs.writeFileString(executable, "binary")
-    if (!formula)
+    if (torvePlatformBinary) {
+      const platformDir = path.dirname(path.dirname(executable))
       yield* fs.writeFileString(
-        path.join(modules, "@opencode", "cli", "package.json"),
+        path.join(packageDir, "package.json"),
+        JSON.stringify({ name: "@torveai/cli", optionalDependencies: { "@torveai/cli-win32-x64": "1.0.4" } }),
+      )
+      yield* fs.writeFileString(
+        path.join(platformDir, "package.json"),
+        JSON.stringify({ name: "@torveai/cli-win32-x64" }),
+      )
+    } else if (!formula)
+      yield* fs.writeFileString(
+        path.join(packageDir, "package.json"),
         JSON.stringify({ name, bin: { opencode: "bin/opencode" } }),
       )
     const requests: string[] = []
@@ -284,6 +300,22 @@ it.live("install failures expose stderr and process errors do not report success
     }),
   )
 })
+
+it.live("detects Torve's npm launcher from its platform binary and checks the npm release", () =>
+  Effect.gen(function* () {
+    const test = yield* fixture(
+      (command) => ({ stdout: Buffer.from(command.command === "npm" ? "@torveai/cli@1.0.4" : "") }),
+      "@torveai/cli",
+      false,
+      "@torveai/cli",
+      undefined,
+      true,
+    )
+    expect(yield* test.updater.method()).toBe("npm")
+    expect(yield* test.updater.latest()).toBe("2.3.4")
+    expect(test.requests).toEqual(["https://registry.npmjs.org/@torveai%2fcli/latest"])
+  }),
+)
 
 it.live("method detection tolerates unavailable package managers", () =>
   Effect.gen(function* () {

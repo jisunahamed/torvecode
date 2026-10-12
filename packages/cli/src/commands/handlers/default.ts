@@ -18,11 +18,15 @@ import { errorMessage } from "../../util/error"
 
 export default Runtime.handler(Commands, (input) =>
   Effect.gen(function* () {
+    // Set the Windows Terminal tab title before service discovery and startup checks,
+    // which can run before the TUI renderer is ready to set its own title.
+    if (process.stdin.isTTY && process.stdout.isTTY) process.stdout.write("\u001b]0;TorveCode\u0007")
     const requestedDirectory = Option.getOrUndefined(input.directory)
     const requestedServer = Option.getOrUndefined(input.server)
     if (requestedDirectory !== undefined) process.chdir(requestedDirectory)
     const preflight = UpdatePreflight.make()
     yield* Effect.addFinalizer(() => Effect.promise(() => preflight.close()))
+    preflight.begin()
     const serviceStarts = yield* Queue.unbounded<{
       readonly reason: "missing" | "version-mismatch"
       readonly previousVersion?: string
@@ -38,7 +42,7 @@ export default Runtime.handler(Commands, (input) =>
       mismatch: "replace",
       onStart: (reason, previousVersion) => {
         Queue.offerUnsafe(serviceStarts, { reason, previousVersion })
-        if (reason === "version-mismatch" && preflight.begin(previousVersion)) return
+        if (preflight.begin(previousVersion)) return
         process.stderr.write(
           reason === "version-mismatch"
             ? "Restarting background server (version mismatch)...\n"
@@ -47,9 +51,10 @@ export default Runtime.handler(Commands, (input) =>
       },
     }).pipe(
       Effect.tapError(() =>
-        Effect.promise(() => preflight.fail("OpenCode update could not start the new background service")),
+        Effect.promise(() => preflight.fail("TorveCode could not start the background service")),
       ),
     )
+    preflight.loading()
     const session = Option.getOrUndefined(input.session)
     // A missing --session ID becomes the ID of the session the first prompt creates.
     const sessionExists =
@@ -84,7 +89,6 @@ export default Runtime.handler(Commands, (input) =>
         Effect.repeat(Schedule.spaced("10 minutes")),
         Effect.forkScoped({ startImmediately: true }),
       )
-    preflight.loading()
     const config = yield* Config.Service
     const npm = yield* Npm.Service
     const fileSystem = yield* FileSystem.FileSystem

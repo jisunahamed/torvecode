@@ -1,31 +1,27 @@
-import txtLogo from "./assets/torve-logo.txt?raw"
 import ansiLogo from "./assets/torve-logo.ansi?raw"
 
-// Torve cube robot — responsive: wide → ANSI truecolor, narrow or NO_COLOR → plain ASCII
-export const torve = {
-  txt: txtLogo,
-  ansi: ansiLogo,
+// OpenTUI's text nodes are not an ANSI parser. Strip terminal control codes before
+// rendering the logo so escape bytes never enter native TextBuffers.
+const ansiControls = /\u001b\[[0-?]*[ -/]*[@-~]/g
+const rows = ansiLogo.replace(ansiControls, "").replaceAll("\r", "").split("\n")
+const firstRow = rows.findIndex((row) => row.trim().length > 0)
+const lastRow = rows.findLastIndex((row) => row.trim().length > 0)
+const wideLogo = rows.slice(firstRow, lastRow + 1).map((row) => row.trimEnd()).join("\n")
+
+// Large terminals get the supplied Torve artwork; smaller screens keep a compact
+// wordmark so the home prompt stays visible without scrolling.
+export function torveLogo(width: number, height: number): string {
+  if (width < 80 || height < 38) return "TORVE AI"
+  return wideLogo
 }
 
-function useAnsi(): boolean {
-  // NO_COLOR env disables ANSI for accessibility / light terminal
-  if (typeof process !== "undefined" && process.env?.NO_COLOR) return false
-  return true
-}
-
-export function torveLogo(width: number): string {
-  if (width < 12) return "TORVECODE"
-  if (width < 80 || !useAnsi()) return torve.txt
-  return torve.ansi
-}
-
-// Keep opencode logo for fallback / tests
+// Compact Torve wordmarks for scrollback and mini-mode splash screens.
 export const logo = {
-  left: ["                   ", "█▀▀█ █▀▀█ █▀▀█ █▀▀▄", "█__█ █__█ █^^^ █__█", "▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀~~▀"],
-  right: ["             ▄     ", "█▀▀▀ █▀▀█ █▀▀█ █▀▀█", "█___ █__█ █__█ █^^^", "▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"],
+  left: ["                   ", "  /\\               ", " |◉ ◉|              ", "  \\_/               "],
+  right: ["        ", "TORVE   ", "AI      ", "        "],
 }
 
 export const go = {
-  left: ["    ", "█▀▀▀", "█_^█", "▀▀▀▀"],
-  right: ["    ", "█▀▀█", "█__█", "▀▀▀▀"],
+  left: ["   ", " /\\", "|◉◉|", " \\_/"],
+  right: ["", "TORVE", " AI", ""],
 }

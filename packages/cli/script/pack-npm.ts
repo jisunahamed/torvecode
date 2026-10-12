@@ -7,16 +7,12 @@ const outdir = path.join(dir, "dist", "npm-cli")
 
 await rm(outdir, { recursive: true, force: true })
 await mkdir(path.join(outdir, "bin"), { recursive: true })
-await Promise.all(
-  ["opencode.cjs", "opencode2.cjs", "torve.cjs", "torve.js"].map((file) =>
-    cp(path.join(dir, "bin", "torve.cjs"), path.join(outdir, "bin", file)),
-  ),
-)
+await cp(path.join(dir, "bin", "torve.cjs"), path.join(outdir, "bin", "torve.cjs"))
 await Bun.write(
   path.join(outdir, "package.json"),
   JSON.stringify(
     {
-      name: pkg.name,
+      name: "@torveai/cli",
       version: pkg.version,
       description: pkg.description,
       license: pkg.license,

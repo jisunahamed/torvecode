@@ -8,6 +8,7 @@ import { Global } from "@opencode/util/global"
 
 export default Runtime.handler(Commands.commands.mini, (input) =>
   Effect.gen(function* () {
+    if (process.stdin.isTTY && process.stdout.isTTY) process.stdout.write("\u001b]0;TorveCode\u0007")
     const { runMini, validateMiniTerminal } = yield* Effect.promise(() => import("../../mini"))
     yield* Effect.promise(async () => validateMiniTerminal())
     const serverURL = Option.getOrUndefined(input.server)

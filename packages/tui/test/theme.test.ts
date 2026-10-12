@@ -17,8 +17,8 @@ test("rejects unrecognized theme structures", () => {
   expect(() => parseTheme({ version: 3 })).toThrow("Invalid theme")
 })
 
-test("registers opencode as a native V2 theme", () => {
-  expect(allThemes().opencode).toBe(getOpenCodeTheme())
+test("keeps the upstream theme out of Torve's theme picker", () => {
+  expect(allThemes().opencode).toBeUndefined()
   expect(parseTheme(getOpenCodeTheme()).base).toBeDefined()
 })
 
@@ -81,7 +81,7 @@ test("replacement sources receive independent parse caches", () => {
 
 test("hasTheme checks theme presence", () => {
   expect(hasTheme("missing-theme")).toBe(false)
-  expect(hasTheme("opencode")).toBe(true)
+  expect(hasTheme("opencode")).toBe(false)
 })
 
 test("resolveTheme rejects circular color refs", () => {

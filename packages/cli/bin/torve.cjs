@@ -5,6 +5,8 @@ const fs = require("fs")
 const path = require("path")
 const os = require("os")
 
+if (process.stdin.isTTY && process.stdout.isTTY) process.stdout.write("\x1b]0;TorveCode\x07")
+
 const forwardedSignals =
   process.platform === "win32" ? ["SIGINT", "SIGTERM", "SIGHUP"] : ["SIGINT", "SIGTERM", "SIGHUP", "SIGUSR1"]
 
