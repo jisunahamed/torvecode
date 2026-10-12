@@ -13,7 +13,7 @@ import { verifyArtifact, verifySimulationGraph } from "./verify-artifact"
 import { resolveOpencodePty } from "./opencode-pty"
 
 const dir = path.resolve(import.meta.dirname, "..")
-const binary = "opencode"
+const binary = "torve"
 const outdir = path.resolve(
   dir,
   process.argv.find((arg) => arg.startsWith("--outdir="))?.slice("--outdir=".length) ?? "dist",
@@ -29,6 +29,23 @@ const requestedTarget = process.argv.find((arg) => arg.startsWith("--target="))?
 const skipInstall = process.argv.includes("--skip-install")
 const skipWebUi = process.argv.includes("--skip-web-ui")
 const solidPlugin = createSolidTransformPlugin()
+const rawTextPlugin: BunPlugin = {
+  name: "raw-text",
+  setup(build) {
+    build.onResolve({ filter: /\.txt\?raw$/ }, (args) => ({
+      path: path.resolve(path.dirname(args.importer), args.path.replace(/\?raw$/, "")),
+      namespace: "raw-text",
+    }))
+    build.onResolve({ filter: /\.ansi\?raw$/ }, (args) => ({
+      path: path.resolve(path.dirname(args.importer), args.path.replace(/\?raw$/, "")),
+      namespace: "raw-text",
+    }))
+    build.onLoad({ filter: /.*/, namespace: "raw-text" }, async (args) => ({
+      contents: await Bun.file(args.path).text(),
+      loader: "text",
+    }))
+  },
+}
 const releaseAssets = new Map<string, Promise<Map<string, string>>>()
 
 const allTargets: {
@@ -64,7 +81,7 @@ const targets =
 if (!targets.length) throw new Error(`Unknown build target: ${requestedTarget}`)
 
 if (!skipInstall)
-  await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]} @opencode-ai/pty@${pkg.dependencies["@opencode-ai/pty"]}`
+  await $`bun install --os="*" --cpu="*" @opentui/core@0.5.17 @opencode-ai/pty@0.2.0`
 const appArchive = path.join(dir, ".cache", "bun-app-archive.bin")
 await Bun.write(appArchive, await buildAppArchive(Script.channel, { skipBuild: skipWebUi }))
 const appAssetsPlugin: BunPlugin = {
@@ -147,13 +164,14 @@ export default { path: file, version: ${JSON.stringify(opencodePty.version)}, sh
     },
   }
   const target = targetName(item)
-  const name = target.replace(binary, "cli")
+  const name = packageName(item)
   const executablePath = await compileExecutable(item)
   console.log(`building ${name}`)
   const result = await Bun.build({
     entrypoints: ["./src/index.ts"],
     tsconfig: "./tsconfig.json",
     plugins: [
+      rawTextPlugin,
       appAssetsPlugin,
       solidPlugin,
       parcelWatcherPlugin,
@@ -177,7 +195,7 @@ export default { path: file, version: ${JSON.stringify(opencodePty.version)}, sh
       outfile: path.join(outdir, name, "bin", binary),
       execArgv: [
         "--smol",
-        `--user-agent=opencode/${Script.channel}/${Script.version}/cli`,
+        `--user-agent=torve/${Script.channel}/${Script.version}/cli`,
         "--use-system-ca",
         "--no-warnings",
         "--",
@@ -186,7 +204,7 @@ export default { path: file, version: ${JSON.stringify(opencodePty.version)}, sh
     },
     define: {
       OPENCODE_VERSION: `'${Script.version}'`,
-      OPENCODE_CLI_NAME: "'opencode'",
+      OPENCODE_CLI_NAME: "'torve'",
       OPENCODE_CHANNEL: `'${Script.channel}'`,
       OPENCODE_ARTIFACT: `'cli'`,
       OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "undefined",
@@ -206,10 +224,10 @@ export default { path: file, version: ${JSON.stringify(opencodePty.version)}, sh
     path.join(outdir, name, "package.json"),
     JSON.stringify(
       {
-        name: `@opencode/${name}`,
+        name: `@torveai/${name}`,
         version: Script.version,
         license: "MIT",
-        repository: { type: "git", url: "git+https://github.com/anomalyco/opencode.git" },
+        repository: { type: "git", url: "git+https://github.com/jisunahamed/torvecode.git" },
         os: [item.os],
         cpu: [item.arch],
       },
@@ -294,6 +312,18 @@ function targetName(item: (typeof allTargets)[number]) {
   return [
     binary,
     item.os === "win32" ? "windows" : item.os,
+    item.arch,
+    item.avx2 === false ? "baseline" : undefined,
+    item.abi,
+  ]
+    .filter(Boolean)
+    .join("-")
+}
+
+function packageName(item: (typeof allTargets)[number]) {
+  return [
+    "cli",
+    item.os,
     item.arch,
     item.avx2 === false ? "baseline" : undefined,
     item.abi,

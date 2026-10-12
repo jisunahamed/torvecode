@@ -38,7 +38,7 @@ const IS_PREVIEW = CHANNEL !== "latest"
 const VERSION = await (async () => {
   if (env.OPENCODE_VERSION) return env.OPENCODE_VERSION
   if (IS_PREVIEW) return `0.0.0-${CHANNEL}-${previewBuildNumber()}`
-  const version = await fetch("https://registry.npmjs.org/@opencode%2fcli/latest")
+  const version = await fetch("https://registry.npmjs.org/@torveai%2fcli/latest")
     .then((res) => {
       if (!res.ok) throw new Error(res.statusText)
       return res.json()
@@ -87,4 +87,4 @@ export const Script = {
     return team
   },
 }
-console.log(`opencode script`, JSON.stringify(Script, null, 2))
+console.log(`torve script`, JSON.stringify(Script, null, 2))

@@ -68,11 +68,11 @@ async function publishDistribution(input: {
           [input.command]: `./bin/${input.command}.exe`,
           ...(input.legacyCommand ? { [input.legacyCommand]: `./bin/${input.command}.exe` } : {}),
         },
-        ...(input.command !== input.binary ? { opencodeSourceBinary: input.binary } : {}),
+        ...(input.command !== input.binary ? { torveSourceBinary: input.binary, opencodeSourceBinary: input.binary } : {}),
         scripts: { postinstall: "node ./postinstall.mjs" },
         version,
         license: pkg.license,
-        repository: { type: "git", url: "git+https://github.com/anomalyco/opencode.git" },
+        repository: { type: "git", url: "git+https://github.com/jisunahamed/torvecode.git" },
         os: ["darwin", "linux", "win32"],
         cpu: ["arm64", "x64"],
         optionalDependencies: binaries,
@@ -84,7 +84,7 @@ async function publishDistribution(input: {
 
   await Promise.all(
     Object.entries(binaries).map(([name, version]) =>
-      publish(`${input.root}/${name.replace("@opencode/", "")}`, name, version),
+      publish(`${input.root}/${name.replace("@torveai/", "")}`, name, version),
     ),
   )
   await publish(`${input.root}/${input.name}`, input.name, version)
@@ -93,7 +93,7 @@ async function publishDistribution(input: {
     files: await Promise.all(
       Object.keys(binaries).map((name) =>
         archive(
-          path.join(input.root, name.replace("@opencode/", ""), "bin"),
+          path.join(input.root, name.replace("@torveai/", ""), "bin"),
           name.slice(input.packagePrefix.length),
           input.binary,
           input.root,
@@ -105,7 +105,7 @@ async function publishDistribution(input: {
   const artifact = {
     channel: Script.channel,
     name: input.artifact,
-    distribution: "opencode",
+    distribution: "torve",
     version,
     metadata: { files },
   }
@@ -126,25 +126,24 @@ async function publishDistribution(input: {
 await publishDistribution({
   root,
   name: pkg.name,
-  command: "opencode",
-  legacyCommand: "opencode2",
-  binary: "opencode",
-  packagePrefix: "@opencode/cli-",
+  command: "torve",
+  binary: "torve",
+  packagePrefix: "@torveai/cli-",
   artifact: "cli",
 })
 if (Script.channel !== "latest" && existsSync(path.join(root, "node"))) {
   await publishDistribution({
     root: path.join(root, "node"),
-    name: "@opencode/cli-node",
+    name: "@torveai/cli-node",
     command: "opencode2-node",
     binary: "opencode2-node",
-    packagePrefix: "@opencode/cli-node-",
+    packagePrefix: "@torveai/cli-node-",
     artifact: "cli-node",
   })
 }
 
 if (Script.channel === "latest" && Script.release && !dryRun) {
-  await $`docker buildx build --platform linux/amd64,linux/arm64 --tag ghcr.io/anomalyco/opencode:${Script.version} --push .`
+  await $`docker buildx build --platform linux/amd64,linux/arm64 --tag ghcr.io/jisunahamed/torvecode:${Script.version} --push .`
 }
 
 if ((Script.channel === "beta" || Script.channel === "latest") && Script.release) {

@@ -1,5 +1,5 @@
-import txtLogo from "../assets/torve-logo.txt?raw"
-import ansiLogo from "../assets/torve-logo.ansi?raw"
+import txtLogo from "./assets/torve-logo.txt?raw"
+import ansiLogo from "./assets/torve-logo.ansi?raw"
 
 // Torve cube robot — responsive: wide → ANSI truecolor, narrow or NO_COLOR → plain ASCII
 export const torve = {
