@@ -56,16 +56,10 @@ const allTargets: {
 }[] = [
   { os: "linux", arch: "arm64" },
   { os: "linux", arch: "x64" },
-  { os: "linux", arch: "x64", avx2: false },
-  { os: "linux", arch: "arm64", abi: "musl" },
-  { os: "linux", arch: "x64", abi: "musl" },
-  { os: "linux", arch: "x64", abi: "musl", avx2: false },
   { os: "darwin", arch: "arm64" },
   { os: "darwin", arch: "x64" },
-  { os: "darwin", arch: "x64", avx2: false },
   { os: "win32", arch: "arm64" },
   { os: "win32", arch: "x64" },
-  { os: "win32", arch: "x64", avx2: false },
 ]
 
 const targets =
@@ -203,7 +197,7 @@ export default { path: file, version: ${JSON.stringify(opencodePty.version)}, sh
       windows: {},
     },
     define: {
-      OPENCODE_VERSION: `'${Script.version}'`,
+      OPENCODE_VERSION: `'${pkg.version}'`,
       OPENCODE_CLI_NAME: "'torve'",
       OPENCODE_CHANNEL: `'${Script.channel}'`,
       OPENCODE_ARTIFACT: `'cli'`,
@@ -225,7 +219,7 @@ export default { path: file, version: ${JSON.stringify(opencodePty.version)}, sh
     JSON.stringify(
       {
         name: `@torveai/${name}`,
-        version: Script.version,
+        version: pkg.version,
         license: "MIT",
         repository: { type: "git", url: "git+https://github.com/jisunahamed/torvecode.git" },
         os: [item.os],

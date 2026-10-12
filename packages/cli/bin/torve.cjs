@@ -39,7 +39,7 @@ const cached = path.join(scriptDir, `.${command}`)
 const platform = { darwin: "darwin", linux: "linux", win32: "win32" }[os.platform()] || os.platform()
 const arch = { x64: "x64", arm64: "arm64", arm: "arm" }[os.arch()] || os.arch()
 const base = "@torveai/cli-" + platform + "-" + arch
-const binary = platform === "windows" ? `${sourceCommand}.exe` : sourceCommand
+const binary = platform === "win32" ? `${sourceCommand}.exe` : sourceCommand
 
 function supportsAvx2() {
   if (arch !== "x64") return false
@@ -58,7 +58,7 @@ function supportsAvx2() {
       return false
     }
   }
-  if (platform === "windows") {
+  if (platform === "win32") {
     const command =
       '(Add-Type -MemberDefinition "[DllImport(""kernel32.dll"")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)'
     for (const executable of ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]) {

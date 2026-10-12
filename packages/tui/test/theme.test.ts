@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 import type { TerminalColors } from "@opentui/core"
-import { allThemes, hasTheme, getOpenCodeTheme, parseTheme, resolveTheme } from "../src/theme"
+import { allThemes, hasTheme, getOpenCodeTheme, getTorveTheme, parseTheme, resolveTheme } from "../src/theme"
 import { discoverThemes } from "../src/theme/discovery"
 import { configDirectories } from "../src/util/config-directories"
 import { terminalMode } from "../src/theme/system"
@@ -20,6 +20,15 @@ test("rejects unrecognized theme structures", () => {
 test("registers opencode as a native V2 theme", () => {
   expect(allThemes().opencode).toBe(getOpenCodeTheme())
   expect(parseTheme(getOpenCodeTheme()).base).toBeDefined()
+})
+
+test("registers the Torve theme with required semantic hues in both modes", () => {
+  const theme = getTorveTheme()
+  for (const mode of [theme.light, theme.dark]) {
+    expect(mode.hue.accent).toBeDefined()
+    expect(mode.hue.interactive).toBeDefined()
+    expect(mode.hue.neutral).toBeDefined()
+  }
 })
 
 test("detects V1 themes from their theme field and caches migrations", () => {
