@@ -15,10 +15,12 @@ import { useTheme } from "../context/theme"
 import { useUpdateNotification } from "../context/update-notification"
 import { useExit } from "../context/exit"
 import { FadeInText } from "../component/fade-in-text"
+import { TextAttributes } from "@opentui/core"
+import { basename } from "node:path"
 
 let once = false
 const placeholder = {
-  normal: ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"],
+  normal: ["What should we build?", "Trace a bug through this codebase", "Review and improve this project"],
   shell: ["ls -la", "git status", "pwd"],
 }
 
@@ -32,6 +34,7 @@ export function Home() {
   const data = useData()
   const location = useLocation()
   const dimensions = useTerminalDimensions()
+  const theme = useTheme()
   const [logoWidth, setLogoWidth] = createSignal(0)
   // Global MCP elicitations can arrive without a session route, so keep them reachable from Home.
   const currentLocation = () => route.location ?? data.location.default()
@@ -98,6 +101,30 @@ export function Home() {
         </box>
         <box height={1} flexShrink={0} />
         <UpdateNotification width={logoWidth()} />
+        <Show when={dimensions().height >= 18}>
+          <box width="100%" maxWidth={75} flexDirection="column" paddingTop={1} paddingLeft={1} paddingRight={1}>
+            <box flexDirection="row" justifyContent="space-between">
+              <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} selectable={false}>
+                TorveCode
+              </text>
+              <Show when={dimensions().width >= 58}>
+                <text fg={theme.text.muted} selectable={false}>
+                  {basename(currentLocation().directory)}
+                </text>
+              </Show>
+            </box>
+            <box flexDirection="row" justifyContent="space-between">
+              <text fg={theme.text.base} selectable={false}>
+                Your code. Your models. One terminal.
+              </text>
+              <Show when={dimensions().width >= 68}>
+                <text fg={theme.text.muted} selectable={false}>
+                  type / for commands
+                </text>
+              </Show>
+            </box>
+          </box>
+        </Show>
         <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0} position="relative">
           <Prompt ref={bind} placeholders={placeholder} disabled={forms().length > 0} />
         </box>
