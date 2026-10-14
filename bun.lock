@@ -114,7 +114,11 @@
       "name": "@torveai/cli",
       "version": "1.0.5",
       "bin": {
-        "torve": "./bin/torve.cjs",
+        "torve": "bin/torve.cjs",
+      },
+      "dependencies": {
+        "@opencode-ai/pty": "0.2.0",
+        "@opentui/core": "catalog:",
       },
       "devDependencies": {
         "@ff-labs/fff-bin-darwin-arm64": "0.10.5",
