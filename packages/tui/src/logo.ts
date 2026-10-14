@@ -17,8 +17,20 @@ const trim = (value: string) => {
   return rows.slice(first, last + 1).map((row) => row.trimEnd())
 }
 
-const plainAnsiRows = trim(ansiLogo.replace(ansiControl, ""))
 const plainTextRows = trim(textLogo)
+
+// The supplied artwork is intentionally never resampled. Character-cell artwork cannot be
+// scaled without changing its proportions, so smaller terminals switch to this hand-authored
+// Torve cube instead.
+const compactRows = [
+  "      ▄████▄",
+  "   ▄██▀    ▀██▄",
+  "  ██  ●  ●    ██",
+  "  ▀██▄  ▄▄▄▄██▀",
+  "     ██ █",
+  "     ██ █   TORVECODE",
+  "     ▀██▀",
+]
 
 function parseAnsi() {
   const rows: LogoSegment[][] = [[]]
@@ -70,37 +82,11 @@ function parseAnsi() {
 
 const colorRows = parseAnsi()
 
-function compact(rows: string[], width: number, height: number) {
-  const sourceWidth = Math.max(...rows.map((row) => row.length))
-  const targetWidth = Math.max(22, Math.min(sourceWidth, width - 4))
-  const targetHeight = Math.max(4, Math.min(15, height - 13))
-  const sampled = Array.from({ length: targetWidth }, (_, x) => Math.floor((x * sourceWidth) / targetWidth))
-  return Array.from({ length: targetHeight }, (_, y) => {
-    const source = Math.floor((y * rows.length) / targetHeight)
-    const next = Math.min(rows.length - 1, source + 1)
-    const top = rows[source] ?? ""
-    const bottom = rows[next] ?? ""
-    return (
-      sampled
-        .map((x) => {
-          const upper = (top[x] ?? " ") !== " "
-          const lower = (bottom[x] ?? " ") !== " "
-          if (upper && lower) return "█"
-          if (upper) return "▀"
-          if (lower) return "▄"
-          return " "
-        })
-        .join("")
-        .trimEnd()
-    )
-  })
-}
-
 export function torveLogo(width: number, height: number, noColor = Boolean(process.env.NO_COLOR)) {
   if (width >= 104 && height >= 52 && noColor) return { kind: "text" as const, rows: plainTextRows }
   if (width >= 74 && height >= 35 && !noColor) return { kind: "ansi" as const, rows: colorRows }
-  if (width >= 28 && height >= 18) return { kind: "compact" as const, rows: compact(plainAnsiRows, width, height) }
-  return { kind: "wordmark" as const, rows: ["TORVE AI"] }
+  if (width >= 34 && height >= 22) return { kind: "compact" as const, rows: compactRows }
+  return { kind: "wordmark" as const, rows: ["⬡ TORVECODE"] }
 }
 
 export const logo = {

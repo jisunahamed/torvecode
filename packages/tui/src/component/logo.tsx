@@ -4,10 +4,10 @@ import { useTerminalDimensions } from "@opentui/solid"
 import { useTheme } from "../context/theme"
 import { torveLogo } from "../logo"
 
-export function Logo() {
+export function Logo(props: { compact?: boolean } = {}) {
   const theme = useTheme()
   const dimensions = useTerminalDimensions()
-  const artwork = () => torveLogo(dimensions().width, dimensions().height)
+  const artwork = () => (props.compact ? torveLogo(40, 24) : torveLogo(dimensions().width, dimensions().height))
   const colorArtwork = createMemo(() => {
     const value = artwork()
     return value.kind === "ansi" ? value : undefined

@@ -58,7 +58,6 @@ import { LocationProvider, useLocation } from "./context/location"
 import { LocalProvider, useLocal } from "./context/local"
 import { PermissionProvider } from "./context/permission"
 import { DialogModel } from "./component/dialog-model"
-import { useConnected } from "./component/use-connected"
 import { DialogMcp } from "./component/dialog-mcp"
 import { DialogStatus } from "./component/dialog-status"
 import { DialogConfig } from "./component/dialog-config"
@@ -685,7 +684,33 @@ function App() {
       .catch(toast.error)
   })
 
-  const connected = useConnected()
+  const torveConnected = createMemo(
+    () =>
+      (data.location.integration.list() ?? []).find((integration) => integration.id === "torveai")?.connections
+        .length !== 0,
+  )
+  let connectionPrompted = false
+  createEffect(() => {
+    if (connectionPrompted || process.env.OPENCODE_STORY) return
+    const integrations = data.location.integration.list()
+    if (!integrations) return
+    const torve = integrations.find((integration) => integration.id === "torveai")
+    if (!torve || torve.connections.length > 0) return
+    connectionPrompted = true
+    queueMicrotask(() => {
+      dialog.replace(
+        () => (
+          <DialogIntegration
+            integrationID="torveai"
+            autoConnect
+            onConnected={() => dialog.clear()}
+          />
+        ),
+        undefined,
+        { key: "torve-connect" },
+      )
+    })
+  })
   const appCommands = createMemo(() =>
     [
       {
@@ -945,12 +970,13 @@ function App() {
       },
       {
         name: "provider.connect",
-        title: "Connect an integration",
-        suggested: !connected(),
+        title: torveConnected() ? "Manage Torve AI connection" : "Connect Torve AI",
+        suggested: !torveConnected(),
         slash: { name: "connect" },
         run: () => {
           dialog.replace(() => (
             <DialogIntegration
+              integrationID="torveai"
               onConnected={(providerID) => dialog.replace(() => <DialogModel providerID={providerID} />)}
             />
           ))

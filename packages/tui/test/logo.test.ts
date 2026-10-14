@@ -10,9 +10,13 @@ describe("Torve terminal logo", () => {
     expect(logo.rows.length).toBeLessThanOrEqual(36)
   })
 
-  test("derives a compact mark from the supplied artwork on ordinary terminals", () => {
-    expect(torveLogo(79, 30).kind).toBe("compact")
-    expect(torveLogo(79, 30).rows.length).toBeLessThanOrEqual(17)
+  test("uses a fixed compact mark on ordinary terminals", () => {
+    const ordinary = torveLogo(79, 30)
+    const smaller = torveLogo(40, 24)
+
+    expect(ordinary.kind).toBe("compact")
+    expect(smaller).toEqual(ordinary)
+    expect(ordinary.rows.length).toBe(7)
   })
 
   test("uses the supplied text artwork for large monochrome terminals", () => {
@@ -22,5 +26,6 @@ describe("Torve terminal logo", () => {
 
   test("keeps the prompt usable in very small terminals", () => {
     expect(torveLogo(27, 17).kind).toBe("wordmark")
+    expect(torveLogo(27, 17).rows).toEqual(["⬡ TORVECODE"])
   })
 })

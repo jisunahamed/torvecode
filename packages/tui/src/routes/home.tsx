@@ -17,6 +17,8 @@ import { useExit } from "../context/exit"
 import { FadeInText } from "../component/fade-in-text"
 import { TextAttributes } from "@opentui/core"
 import { basename } from "node:path"
+import { useClient } from "../context/client"
+import { useTuiApp } from "../context/runtime"
 
 let once = false
 const placeholder = {
@@ -35,6 +37,8 @@ export function Home() {
   const location = useLocation()
   const dimensions = useTerminalDimensions()
   const theme = useTheme()
+  const client = useClient()
+  const app = useTuiApp()
   const [logoWidth, setLogoWidth] = createSignal(0)
   // Global MCP elicitations can arrive without a session route, so keep them reachable from Home.
   const currentLocation = () => route.location ?? data.location.default()
@@ -83,52 +87,74 @@ export function Home() {
 
   return (
     <>
-      <box
-        flexGrow={1}
-        alignItems="center"
-        paddingLeft={dimensions().width < 44 ? 1 : 2}
-        paddingRight={dimensions().width < 44 ? 1 : 2}
-      >
-        <box flexGrow={1} minHeight={0} />
-        <box height={3} minHeight={0} flexShrink={1} />
-        <box
-          flexShrink={0}
-          onSizeChange={function () {
-            setLogoWidth(this.width)
-          }}
-        >
-          <Logo />
-        </box>
-        <box height={1} flexShrink={0} />
-        <UpdateNotification width={logoWidth()} />
-        <Show when={dimensions().height >= 18}>
-          <box width="100%" maxWidth={75} flexDirection="column" paddingTop={1} paddingLeft={1} paddingRight={1}>
-            <box flexDirection="row" justifyContent="space-between">
-              <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} selectable={false}>
-                TorveCode
-              </text>
-              <Show when={dimensions().width >= 58}>
-                <text fg={theme.text.muted} selectable={false}>
-                  {basename(currentLocation().directory)}
+      <box flexGrow={1} minWidth={0} minHeight={0} flexDirection="column">
+        <HomeHeader
+          version={app.version}
+          workspace={currentLocation().directory}
+          model={local.model.current()?.modelID}
+          status={client.connection.status()}
+        />
+        <box flexGrow={1} minWidth={0} minHeight={0} flexDirection="row">
+          <box flexGrow={1} minWidth={0} minHeight={0} paddingLeft={2} paddingRight={2}>
+            <box flexGrow={1} minHeight={0} paddingTop={dimensions().height < 24 ? 1 : 2}>
+              <box flexDirection="row" gap={2}>
+                <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} selectable={false}>
+                  ›
                 </text>
+                <box gap={1}>
+                  <text fg={theme.text.base} attributes={TextAttributes.BOLD} selectable={false}>
+                    What can I help you build?
+                  </text>
+                  <Show when={dimensions().height >= 18}>
+                    <text fg={theme.text.muted} selectable={false}>
+                      Explore, edit and debug your codebase.
+                    </text>
+                  </Show>
+                </box>
+              </box>
+              <Show when={dimensions().width >= 90 && dimensions().height >= 27}>
+                <box paddingTop={2} paddingLeft={3} flexDirection="row" gap={3}>
+                  <Logo compact />
+                  <box paddingTop={1} gap={1}>
+                    <text fg={theme.text.muted}>Start with a prompt, or type / for commands.</text>
+                    <text fg={theme.text.action.primary.selected}>/models   <span style={{ fg: theme.text.muted }}>Choose a Torve AI model</span></text>
+                    <text fg={theme.text.action.primary.selected}>/skills   <span style={{ fg: theme.text.muted }}>Browse coding skills</span></text>
+                    <text fg={theme.text.action.primary.selected}>/sessions <span style={{ fg: theme.text.muted }}>Open an earlier session</span></text>
+                    <text fg={theme.text.action.primary.selected}>/help     <span style={{ fg: theme.text.muted }}>See commands and shortcuts</span></text>
+                  </box>
+                </box>
               </Show>
+              <box flexGrow={1} minHeight={0} />
+              <box
+                flexShrink={0}
+                onSizeChange={function () {
+                  setLogoWidth(this.width)
+                }}
+              >
+                <UpdateNotification width={logoWidth()} />
+              </box>
             </box>
-            <box flexDirection="row" justifyContent="space-between">
-              <text fg={theme.text.base} selectable={false}>
-                Your code. Your models. One terminal.
-              </text>
-              <Show when={dimensions().width >= 68}>
-                <text fg={theme.text.muted} selectable={false}>
-                  type / for commands
-                </text>
-              </Show>
+            <box width="100%" zIndex={1000} flexShrink={0} position="relative" paddingBottom={1}>
+              <Prompt ref={bind} placeholders={placeholder} disabled={forms().length > 0} />
             </box>
           </box>
-        </Show>
-        <box width="100%" maxWidth={75} zIndex={1000} paddingTop={1} flexShrink={0} position="relative">
-          <Prompt ref={bind} placeholders={placeholder} disabled={forms().length > 0} />
+          <Show when={dimensions().width >= 110}>
+            <HomeSidebar workspace={currentLocation().directory} connected={torveConnected(data)} />
+          </Show>
         </box>
-        <box flexGrow={1} minHeight={0} />
+        <box
+          height={1}
+          flexShrink={0}
+          flexDirection="row"
+          paddingLeft={2}
+          paddingRight={2}
+          border={["top"]}
+          borderColor={theme.border.base}
+        >
+          <text fg={theme.text.muted}>IN 0  ·  OUT 0  ·  context 0%</text>
+          <box flexGrow={1} />
+          <text fg={theme.text.muted}>ctrl+? help</text>
+        </box>
       </box>
       <box width="100%" flexShrink={0}>
         <Slot path="home.footer" />
@@ -146,6 +172,81 @@ export function Home() {
         }}
       </Show>
     </>
+  )
+}
+
+function HomeHeader(props: { version: string; workspace: string; model?: string; status: string }) {
+  const theme = useTheme()
+  const dimensions = useTerminalDimensions()
+  const connected = () => props.status === "connected"
+  return (
+    <box
+      height={3}
+      flexShrink={0}
+      flexDirection="row"
+      alignItems="center"
+      paddingLeft={2}
+      paddingRight={1}
+      gap={dimensions().width < 78 ? 1 : 2}
+      border={["bottom"]}
+      borderColor={theme.border.base}
+    >
+      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} wrapMode="none">
+        ⬡ TorveCode
+      </text>
+      <Show when={dimensions().width >= 78}>
+        <text fg={theme.text.muted}>v{props.version}</text>
+        <text fg={theme.border.base}>│</text>
+        <text fg={theme.text.base} truncate flexGrow={1} minWidth={8}>▱ {props.workspace}</text>
+        <text fg={theme.border.base}>│</text>
+      </Show>
+      <text fg={theme.text.base} truncate maxWidth={dimensions().width < 78 ? 20 : 30}>
+        ◇ {props.model ?? "Selecting model"}
+      </text>
+      <box flexGrow={1} minWidth={0} />
+      <text fg={connected() ? theme.text.feedback.success.base : theme.text.feedback.warning.base} wrapMode="none">
+        ● {connected() ? "Connected" : "Connecting"}
+      </text>
+    </box>
+  )
+}
+
+function HomeSidebar(props: { workspace: string; connected: boolean }) {
+  const theme = useTheme()
+  return (
+    <box
+      width={30}
+      height="100%"
+      flexShrink={0}
+      paddingTop={1}
+      paddingBottom={1}
+      paddingLeft={2}
+      paddingRight={2}
+      backgroundColor={theme.background.raised.base}
+      border={["left"]}
+      borderColor={theme.border.base}
+      gap={1}
+    >
+      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD}>▱ Workspace</text>
+      <text fg={theme.text.base} wrapMode="word">{props.workspace}</text>
+      <box height={1} border={["bottom"]} borderColor={theme.border.base} />
+      <text fg={theme.text.action.primary.selected}>▤ Current session</text>
+      <text fg={theme.text.muted}>New session</text>
+      <box height={1} border={["bottom"]} borderColor={theme.border.base} />
+      <text fg={theme.text.action.primary.selected}>⌁ Modified files</text>
+      <text fg={theme.text.muted}>No modified files</text>
+      <box height={1} border={["bottom"]} borderColor={theme.border.base} />
+      <text fg={theme.text.action.primary.selected}>⌁ Torve AI</text>
+      <text fg={props.connected ? theme.text.feedback.success.base : theme.text.feedback.warning.base}>
+        {props.connected ? "● Account connected" : "● Connection required"}
+      </text>
+    </box>
+  )
+}
+
+function torveConnected(data: ReturnType<typeof useData>) {
+  return Boolean(
+    data.location.integration.list()?.find((integration) => integration.id === "torveai")?.connections.length,
   )
 }
 
