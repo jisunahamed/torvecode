@@ -3,3 +3,13 @@ declare module "virtual:opencode-app-assets" {
   const read: () => Uint8Array
   export default read
 }
+
+declare module "*.ansi" {
+  const content: string
+  export default content
+}
+
+declare module "*.txt" {
+  const content: string
+  export default content
+}

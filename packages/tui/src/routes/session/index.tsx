@@ -1430,6 +1430,9 @@ export function Session(props: {
                   updateAwayFromBottom()
                 }}
               >
+                <Show when={!firstJump() && messages().length === 0}>
+                  <SessionWelcome width={contentWidth()} height={terminalHeight()} />
+                </Show>
                 <For each={visibleRows()}>
                   {(row, index) => (
                     <SessionRowView
@@ -1545,6 +1548,56 @@ export function Session(props: {
         </box>
       </box>
     </context.Provider>
+  )
+}
+
+function SessionWelcome(props: { width: number; height: number }) {
+  const theme = useTheme()
+  const commands = [
+    ["/models", "Choose a Torve AI model"],
+    ["/skills", "Browse and use coding skills"],
+    ["/sessions", "Open an earlier session"],
+    ["/help", "See commands and shortcuts"],
+  ] as const
+
+  return (
+    <box flexShrink={0} paddingTop={1} paddingLeft={1} paddingRight={1} gap={1}>
+      <box flexDirection="row" gap={2}>
+        <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD}>
+          ›
+        </text>
+        <box gap={1}>
+          <text fg={theme.text.base} attributes={TextAttributes.BOLD}>
+            What can I help you build?
+          </text>
+          <text fg={theme.text.muted}>Explore, edit and debug your codebase.</text>
+        </box>
+      </box>
+      <Show when={props.width >= 58 && props.height >= 22}>
+        <box
+          marginTop={1}
+          marginLeft={3}
+          paddingTop={1}
+          paddingBottom={1}
+          paddingLeft={2}
+          border={["left"]}
+          borderColor={theme.border.base}
+          gap={1}
+        >
+          <text fg={theme.text.muted}>Start with a prompt, or type / for commands.</text>
+          <For each={commands}>
+            {(command) => (
+              <box flexDirection="row" gap={2}>
+                <text fg={theme.text.action.primary.selected} wrapMode="none">
+                  {command[0].padEnd(10)}
+                </text>
+                <text fg={theme.text.muted}>{command[1]}</text>
+              </box>
+            )}
+          </For>
+        </box>
+      </Show>
+    </box>
   )
 }
 

@@ -1657,7 +1657,7 @@ export function Prompt(props: PromptProps) {
       <box ref={(r: BoxRenderable) => (anchor = r)} visible={props.visible !== false} width="100%">
         <box
           width="100%"
-          border={["left"]}
+          border={["left", "top", "right"]}
           borderColor={borderHighlight()}
           customBorderChars={{
             ...SplitBorder.customBorderChars,
@@ -1848,7 +1848,7 @@ export function Prompt(props: PromptProps) {
         </box>
         <box
           height={1}
-          border={["left"]}
+          border={["left", "right"]}
           borderColor={borderHighlight()}
           customBorderChars={{
             ...EmptyBorder,

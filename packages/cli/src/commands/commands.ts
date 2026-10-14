@@ -146,6 +146,7 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
       commands: [
         Spec.make("list", {
           description: "list integrations and credentials",
+          aliases: ["status"],
           params: {
             ...ServerParams,
             format: Flag.Literals("format", ["default", "json"]).pipe(

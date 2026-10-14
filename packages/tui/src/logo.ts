@@ -1,5 +1,5 @@
-import ansiLogo from "./assets/torve-logo.ansi?raw"
-import textLogo from "./assets/torve-logo.txt?raw"
+import ansiLogo from "./assets/torve-logo.ansi" with { type: "text" }
+import textLogo from "./assets/torve-logo.txt" with { type: "text" }
 
 export type LogoSegment = {
   text: string

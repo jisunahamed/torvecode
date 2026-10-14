@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode",
-  "description": "AI-powered development tool",
+  "name": "torvecode",
+  "description": "Torve AI coding agent for the terminal",
   "version": "1.0.5",
   "private": true,
   "type": "module",

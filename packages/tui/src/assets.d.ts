@@ -1,9 +1,9 @@
-declare module "*.ansi?raw" {
+declare module "*.ansi" {
   const content: string
   export default content
 }
 
-declare module "*.txt?raw" {
+declare module "*.txt" {
   const content: string
   export default content
 }

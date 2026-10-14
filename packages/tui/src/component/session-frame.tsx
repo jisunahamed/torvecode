@@ -2,6 +2,7 @@ import {
   CliRenderEvents,
   RGBA,
   MouseEvent,
+  TextAttributes,
   type BoxRenderable,
   type Renderable,
   type ScrollBoxRenderable,
@@ -25,6 +26,10 @@ import { PaneResizeHandle } from "../ui/pane-resize-handle"
 import { useToast } from "../ui/toast"
 import { TerminalPane } from "./terminal-pane"
 import { PanelHost } from "./panel-host"
+import { useTheme } from "../context/theme"
+import { useLocal } from "../context/local"
+import { useClient } from "../context/client"
+import { useTuiApp } from "../context/runtime"
 
 export function SessionFrame(props: { sessionID: string; verticalTabsWidth: number }) {
   const sessions = useSessionTerminals()
@@ -37,6 +42,9 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
   const dimensions = useTerminalDimensions()
   const panels = usePanel()
   const dialog = useDialog()
+  const local = useLocal()
+  const client = useClient()
+  const app = useTuiApp()
   const availableWidth = () => Math.max(0, dimensions().width - props.verticalTabsWidth)
   const defaultPaneWidth = () => Math.max(1, Math.floor(panels.width() / 2))
   const [layout, updateLayout] = useStorage().store<{ paneWidth?: number; terminalWidth?: number }>("layout", {
@@ -263,137 +271,211 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
       flexGrow={1}
       minWidth={0}
       minHeight={0}
-      flexDirection="row"
+      flexDirection="column"
       position="relative"
       onMouseDrag={paneResize.onMouseDrag}
       onMouseDragEnd={finishPaneResize}
       onMouseUp={finishPaneResize}
     >
-      <box
-        id="session-pane"
-        ref={(value: BoxRenderable) => (sessionNode = value)}
-        flexGrow={1}
-        flexBasis={0}
-        minWidth={0}
-        minHeight={0}
-        position={fullscreen() ? "absolute" : "relative"}
-        visible={!fullscreen()}
-        width={fullscreen() ? Math.max(0, panels.width() - paneResize.size()) : undefined}
-        height="100%"
-        onSizeChange={function () {
-          setSessionWidth(this.width)
-        }}
-      >
-        <InteractivityProvider enabled={activePane() === "session" && !fullscreen()}>
-          <Session
-            scrollRef={(value) => (sessionScroll = value)}
-            verticalTabsWidth={props.verticalTabsWidth}
-            promptMuted={activePane() !== "session"}
-            sidebarVisible={rightPane() === "sidebar"}
-            onToggleSidebar={toggleSidebar}
-            terminals={sessions.available()}
-            visibleTerminalID={rightPane() === "terminal" ? selectedTerminal()?.id : undefined}
-            onTerminalPicker={(show) => (showTerminals = show)}
-            width={sessionWidth()}
-          />
-        </InteractivityProvider>
-        <Show when={activePane() === "right"}>
-          <box
-            position="absolute"
-            left={0}
-            top={0}
-            width="100%"
-            height="100%"
-            zIndex={1}
-            onMouseScroll={(event) => {
-              if (!sessionScroll || sessionScroll.isDestroyed) return
-              const viewport = sessionScroll.viewport
-              if (event.x < viewport.x || event.x >= viewport.x + viewport.width) return
-              if (event.y < viewport.y || event.y >= viewport.y + viewport.height) return
-              // Keep the focus-only click guard, but let the transcript handle its own wheel events.
-              event.stopPropagation()
-              sessionScroll.processMouseEvent(new MouseEvent(sessionScroll, event))
-            }}
-            // Consume the release before revealing permission buttons underneath.
-            onMouseUp={() => {
-              if (paneResize.resizing() || resizeRelease) return
-              focusSession()
-            }}
-          />
-        </Show>
-      </box>
-      <Show when={rightPane() === "terminal" || rightPane() === "panel" || (rightPane() === "sidebar" && wide())}>
+      <SessionHeader
+        sessionID={props.sessionID}
+        version={app.version}
+        model={local.model.current()?.modelID}
+        status={client.connection.status()}
+        sidebar={rightPane() === "sidebar"}
+        onToggleSidebar={toggleSidebar}
+      />
+      <box flexGrow={1} minWidth={0} minHeight={0} flexDirection="row" position="relative">
         <box
-          ref={(value: BoxRenderable) => (rightNode = value)}
-          flexShrink={0}
-          width={
-            fullscreen() ? availableWidth() : rightPane() === "sidebar" ? SESSION_SIDEBAR_WIDTH : paneResize.size()
-          }
+          id="session-pane"
+          ref={(value: BoxRenderable) => (sessionNode = value)}
+          flexGrow={1}
+          flexBasis={0}
           minWidth={0}
           minHeight={0}
+          position={fullscreen() ? "absolute" : "relative"}
+          visible={!fullscreen()}
+          width={fullscreen() ? Math.max(0, panels.width() - paneResize.size()) : undefined}
+          height="100%"
+          onSizeChange={function () {
+            setSessionWidth(this.width)
+          }}
         >
-          <Show
-            when={rightPane() === "sidebar"}
-            fallback={
-              <Show
-                keyed
-                when={activePanel()}
-                fallback={
-                  <Show keyed when={selectedTerminal()?.id}>
-                    {(ptyID) => (
-                      <TerminalPane
-                        ptyID={ptyID}
-                        resizing={paneResize.resizing()}
-                        autoFocus={restoreTerminalFocus() || sessions.shouldFocus(ptyID)}
-                        onAutoFocus={() => {
-                          sessions.clearFocus(ptyID)
-                          setRestoreTerminalFocus(false)
-                        }}
-                        onFocusRequest={(value) => (focusTerminal = value)}
-                        onDisconnect={() => setRestoreTerminalFocus(true)}
-                      />
-                    )}
-                  </Show>
-                }
-              >
-                {(item) => (
-                  <PanelHost
-                    panel={item}
-                    width={fullscreen() ? availableWidth() : paneResize.size()}
-                    focused={activePane() === "right"}
-                    onFocus={focusRightPane}
-                    onTarget={(node) => {
-                      panelNode = node
-                      if (node) {
-                        focusRightPane()
-                        return
-                      }
-                      setActivePane("session")
-                    }}
-                  />
-                )}
-              </Show>
-            }
-          >
-            <Sidebar sessionID={props.sessionID} />
+          <InteractivityProvider enabled={activePane() === "session" && !fullscreen()}>
+            <Session
+              scrollRef={(value) => (sessionScroll = value)}
+              verticalTabsWidth={props.verticalTabsWidth}
+              promptMuted={activePane() !== "session"}
+              sidebarVisible={rightPane() === "sidebar"}
+              onToggleSidebar={toggleSidebar}
+              terminals={sessions.available()}
+              visibleTerminalID={rightPane() === "terminal" ? selectedTerminal()?.id : undefined}
+              onTerminalPicker={(show) => (showTerminals = show)}
+              width={sessionWidth()}
+            />
+          </InteractivityProvider>
+          <Show when={activePane() === "right"}>
+            <box
+              position="absolute"
+              left={0}
+              top={0}
+              width="100%"
+              height="100%"
+              zIndex={1}
+              onMouseScroll={(event) => {
+                if (!sessionScroll || sessionScroll.isDestroyed) return
+                const viewport = sessionScroll.viewport
+                if (event.x < viewport.x || event.x >= viewport.x + viewport.width) return
+                if (event.y < viewport.y || event.y >= viewport.y + viewport.height) return
+                // Keep the focus-only click guard, but let the transcript handle its own wheel events.
+                event.stopPropagation()
+                sessionScroll.processMouseEvent(new MouseEvent(sessionScroll, event))
+              }}
+              // Consume the release before revealing permission buttons underneath.
+              onMouseUp={() => {
+                if (paneResize.resizing() || resizeRelease) return
+                focusSession()
+              }}
+            />
           </Show>
         </box>
+        <Show when={rightPane() === "terminal" || rightPane() === "panel" || (rightPane() === "sidebar" && wide())}>
+          <box
+            ref={(value: BoxRenderable) => (rightNode = value)}
+            flexShrink={0}
+            width={
+              fullscreen() ? availableWidth() : rightPane() === "sidebar" ? SESSION_SIDEBAR_WIDTH : paneResize.size()
+            }
+            minWidth={0}
+            minHeight={0}
+          >
+            <Show
+              when={rightPane() === "sidebar"}
+              fallback={
+                <Show
+                  keyed
+                  when={activePanel()}
+                  fallback={
+                    <Show keyed when={selectedTerminal()?.id}>
+                      {(ptyID) => (
+                        <TerminalPane
+                          ptyID={ptyID}
+                          resizing={paneResize.resizing()}
+                          autoFocus={restoreTerminalFocus() || sessions.shouldFocus(ptyID)}
+                          onAutoFocus={() => {
+                            sessions.clearFocus(ptyID)
+                            setRestoreTerminalFocus(false)
+                          }}
+                          onFocusRequest={(value) => (focusTerminal = value)}
+                          onDisconnect={() => setRestoreTerminalFocus(true)}
+                        />
+                      )}
+                    </Show>
+                  }
+                >
+                  {(item) => (
+                    <PanelHost
+                      panel={item}
+                      width={fullscreen() ? availableWidth() : paneResize.size()}
+                      focused={activePane() === "right"}
+                      onFocus={focusRightPane}
+                      onTarget={(node) => {
+                        panelNode = node
+                        if (node) {
+                          focusRightPane()
+                          return
+                        }
+                        setActivePane("session")
+                      }}
+                    />
+                  )}
+                </Show>
+              }
+            >
+              <Sidebar sessionID={props.sessionID} />
+            </Show>
+          </box>
+        </Show>
+        <Show when={!fullscreen() && (rightPane() === "terminal" || rightPane() === "panel") && availableWidth() >= 3}>
+          <PaneResizeHandle resize={paneResize} left={availableWidth() - paneResize.size() - 1} highlight="right" />
+        </Show>
+        <Show when={rightPane() === "sidebar" && !wide()}>
+          <box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            alignItems="flex-end"
+            backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
+          >
+            <Sidebar sessionID={props.sessionID} />
+          </box>
+        </Show>
+      </box>
+    </box>
+  )
+}
+
+function SessionHeader(props: {
+  sessionID: string
+  version: string
+  model?: string
+  status: string
+  sidebar: boolean
+  onToggleSidebar: () => void
+}) {
+  const data = useData()
+  const theme = useTheme()
+  const dimensions = useTerminalDimensions()
+  const session = createMemo(() => data.session.get(props.sessionID))
+  const workspace = createMemo(() => session()?.location.directory ?? "workspace")
+  const compact = () => dimensions().width < 78
+  const connected = () => props.status === "connected"
+  const connectionLabel = () =>
+    connected() ? "Connected" : props.status === "reconnecting" ? "Reconnecting" : "Connecting"
+
+  return (
+    <box
+      height={3}
+      flexShrink={0}
+      flexDirection="row"
+      alignItems="center"
+      paddingLeft={2}
+      paddingRight={1}
+      gap={compact() ? 1 : 2}
+      border={["bottom"]}
+      borderColor={theme.border.base}
+    >
+      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} wrapMode="none">
+        ⬡ TorveCode
+      </text>
+      <Show when={!compact()}>
+        <text fg={theme.text.muted} wrapMode="none">
+          v{props.version}
+        </text>
+        <text fg={theme.border.base}>│</text>
+        <text fg={theme.text.base} wrapMode="none" truncate flexGrow={1} minWidth={8}>
+          ▱ {workspace()}
+        </text>
+        <text fg={theme.border.base}>│</text>
       </Show>
-      <Show when={!fullscreen() && (rightPane() === "terminal" || rightPane() === "panel") && availableWidth() >= 3}>
-        <PaneResizeHandle resize={paneResize} left={availableWidth() - paneResize.size() - 1} highlight="right" />
-      </Show>
-      <Show when={rightPane() === "sidebar" && !wide()}>
-        <box
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          alignItems="flex-end"
-          backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
+      <text fg={theme.text.base} wrapMode="none" truncate maxWidth={compact() ? 22 : 34}>
+        ◇ {props.model ?? "Selecting model"}
+      </text>
+      <box flexGrow={1} minWidth={0} />
+      <text fg={connected() ? theme.text.feedback.success.base : theme.text.feedback.warning.base} wrapMode="none">
+        ● {connectionLabel()}
+      </text>
+      <Show when={dimensions().width >= 92}>
+        <text fg={theme.border.base}>│</text>
+        <text
+          fg={props.sidebar ? theme.text.action.primary.selected : theme.text.muted}
+          wrapMode="none"
+          onMouseUp={props.onToggleSidebar}
         >
-          <Sidebar sessionID={props.sessionID} />
-        </box>
+          ctrl+b {props.sidebar ? "Hide" : "Show"} sidebar
+        </text>
       </Show>
     </box>
   )

@@ -11,8 +11,8 @@ export const NvidiaPlugin = define({
         evt.update(item.provider.id, (provider) => {
           provider.headers = {
             ...provider.headers,
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "HTTP-Referer": "https://torve.ai/",
+            "X-Title": "TorveCode",
             "X-BILLING-INVOKE-ORIGIN": provider.headers?.["X-BILLING-INVOKE-ORIGIN"] ?? "OpenCode",
           }
         })

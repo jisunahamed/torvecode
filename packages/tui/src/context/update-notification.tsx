@@ -120,24 +120,28 @@ export const { use: useUpdateNotification, provider: UpdateNotificationProvider 
     })
 
     onCleanup(
-      event.on("installation.update-available", (event) =>
+      event.on("installation.update-available", (event) => {
+        // TorveCode owns its npm release channel. A compatible background
+        // service can report an unrelated upstream build version.
+        if (props.updater) return
         notify({
           source: "server",
-          remote: props.updater?.remote ?? false,
+          remote: false,
           type: "available",
           version: event.data.version,
-        }),
-      ),
+        })
+      }),
     )
     onCleanup(
-      event.on("installation.updated", (event) =>
+      event.on("installation.updated", (event) => {
+        if (props.updater) return
         notify({
           source: "server",
-          remote: props.updater?.remote ?? false,
+          remote: false,
           type: "installed",
           version: event.data.version,
-        }),
-      ),
+        })
+      }),
     )
 
     return {
