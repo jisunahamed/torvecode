@@ -1085,13 +1085,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
       (Array.isArray(delta?.reasoning_details) && delta.reasoning_details.length > 0) ||
       toolDeltas.some((tool) => Boolean(tool.id) || Boolean(tool.function?.name) || Boolean(tool.function?.arguments))
     if (state.finishReason !== undefined) {
-      if (hasLateContent)
-        return yield* ProviderShared.eventError(
-          ADAPTER,
-          "OpenAI Chat received content after the finish reason",
-          ProviderShared.encodeJson(event),
-        )
-      return [{ ...state, usage }, events] as const
+      if (!hasLateContent) return [{ ...state, usage }, events] as const
     }
 
     const reasoningField = state.reasoningField ?? reasoning?.field

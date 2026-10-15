@@ -133,7 +133,13 @@ async function selectSession(input: {
 
 export function findSession(client: OpenCodeClient, sessionID: string, signal?: AbortSignal) {
   return client.session.get({ sessionID }, ...requestOptions(signal)).catch((error) => {
-    if (error && typeof error === "object" && "_tag" in error && error._tag === "SessionNotFoundError") return undefined
+    if (
+      error &&
+      typeof error === "object" &&
+      (("_tag" in error && error._tag === "SessionNotFoundError") ||
+        ("message" in error && typeof error.message === "string" && error.message.includes("Session not found")))
+    )
+      return undefined
     throw error
   })
 }

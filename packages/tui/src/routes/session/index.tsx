@@ -345,6 +345,14 @@ export function Session(props: {
         data.session.permission.sync(sessionID).catch(() => undefined),
         data.session.form.sync(sessionID).catch(() => undefined),
       ])
+      const fallback = () => {
+        if (sessionTabs.enabled()) {
+          sessionTabs.close(sessionID)
+        }
+        if (route.sessionID === sessionID) {
+          navigate({ type: "home" })
+        }
+      }
       const info = data.session.get(sessionID)
       if (!info) {
         toast.show({
@@ -352,7 +360,7 @@ export function Session(props: {
           variant: "error",
           duration: 5000,
         })
-        sessionTabs.enabled() ? sessionTabs.close(sessionID) : navigate({ type: "home" })
+        fallback()
         return
       }
       editor.reconnect(info.location.directory)
@@ -364,7 +372,12 @@ export function Session(props: {
         variant: "error",
         duration: 5000,
       })
-      sessionTabs.enabled() ? sessionTabs.close(sessionID) : navigate({ type: "home" })
+      if (sessionTabs.enabled()) {
+        sessionTabs.close(sessionID)
+      }
+      if (route.sessionID === sessionID) {
+        navigate({ type: "home" })
+      }
     })
   })
 

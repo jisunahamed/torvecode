@@ -21,7 +21,13 @@ export function Sidebar(props: { sessionID: string }) {
   const scrollAcceleration = createMemo(() => getScrollAcceleration(config))
   const [files, { refetch }] = createResource(
     () => props.sessionID,
-    async (sessionID) => await client.api.session.diff({ sessionID, context: 0 }),
+    async (sessionID) => {
+      try {
+        return await client.api.session.diff({ sessionID, context: 0 })
+      } catch {
+        return []
+      }
+    },
   )
   createEffect((previous) => {
     const status = data.session.status(props.sessionID)

@@ -582,27 +582,22 @@ describe("OpenAI-compatible Chat route", () => {
     }),
   )
 
-  it.effect("rejects content after a terminal chunk", () =>
+  it.effect("accepts content after a finish reason chunk", () =>
     Effect.gen(function* () {
-      const error = yield* LLMClient.generate(request).pipe(
+      const response = yield* LLMClient.generate(request).pipe(
         Effect.provide(
           fixedResponse(
             sseEvents(
               deltaChunk({ content: "Hello" }),
               deltaChunk({}, "stop"),
-              deltaChunk({ tool_calls: [{ index: 0, id: "call_1", function: { name: "lookup", arguments: "{}" } }] }),
+              deltaChunk({ content: " world!" }),
             ),
           ),
         ),
-        Effect.flip,
       )
 
-      expect(error.message).toContain("OpenAI Chat received content after the finish reason")
-      expect(error.reason._tag).toBe("InvalidProviderOutput")
-      if (error.reason._tag !== "InvalidProviderOutput") return
-      expect(decodeJson(error.reason.body ?? "")).toMatchObject({
-        choices: [{ delta: { tool_calls: [{ id: "call_1" }] } }],
-      })
+      expect(response.text).toBe("Hello world!")
+      expect(response.finishReason).toEqual({ normalized: "stop", raw: "stop" })
     }),
   )
 })

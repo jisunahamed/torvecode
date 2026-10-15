@@ -96,7 +96,7 @@ import { COMMAND_PALETTE_COMMAND, Keymap, type KeymapCommand } from "./context/k
 
 import { DialogVariant } from "./component/dialog-variant"
 import { destroyRenderer } from "./util/renderer"
-import { cliErrorMessage, errorFormat } from "./util/error"
+import { cliErrorMessage, errorFormat, errorMessage } from "./util/error"
 import { AttentionProvider } from "./context/attention"
 import { StorageProvider, useStorage } from "./context/storage"
 import { SessionTerminalsProvider } from "./context/session-terminals"
@@ -660,7 +660,10 @@ function App() {
       })
       .then((response) => {
         const match = response.data[0]?.id
-        if (!match) return
+        if (!match) {
+          route.navigate({ type: "home" })
+          return
+        }
         if (!args.fork) {
           route.navigate({ type: "session", sessionID: match, prompt: startupPrompt })
           return
@@ -668,9 +671,15 @@ function App() {
         void client.api.session
           .fork({ sessionID: match })
           .then((result) => route.navigate({ type: "session", sessionID: result.id, prompt: startupPrompt }))
-          .catch(toast.error)
+          .catch((error) => {
+            toast.error(error)
+            route.navigate({ type: "home" })
+          })
       })
-      .catch(toast.error)
+      .catch((error) => {
+        toast.error(error)
+        route.navigate({ type: "home" })
+      })
   })
 
   // Handle --session with --fork once.
@@ -681,7 +690,10 @@ function App() {
     void client.api.session
       .fork({ sessionID: args.sessionID })
       .then((result) => route.navigate({ type: "session", sessionID: result.id, prompt: startupPrompt }))
-      .catch(toast.error)
+      .catch((error) => {
+        toast.error(error)
+        route.navigate({ type: "home" })
+      })
   })
 
   const torveConnected = createMemo(
@@ -1389,10 +1401,29 @@ function App() {
                 <Match when={route.data.type === "session"}>
                   <Show when={route.data.type === "session" ? route.data.sessionID : undefined} keyed>
                     {(sessionID) => (
-                      <SessionFrame
-                        sessionID={sessionID}
-                        verticalTabsWidth={verticalTabsVisible() ? tabsResize.size() : 0}
-                      />
+                      <ErrorBoundary
+                        fallback={(error) => {
+                          toast.show({
+                            message: errorMessage(error),
+                            variant: "error",
+                            duration: 5000,
+                          })
+                          queueMicrotask(() => {
+                            if (sessionTabs.enabled()) {
+                              sessionTabs.close(sessionID)
+                            }
+                            if (route.data.type === "session" && route.data.sessionID === sessionID) {
+                              route.navigate({ type: "home" })
+                            }
+                          })
+                          return null
+                        }}
+                      >
+                        <SessionFrame
+                          sessionID={sessionID}
+                          verticalTabsWidth={verticalTabsVisible() ? tabsResize.size() : 0}
+                        />
+                      </ErrorBoundary>
                     )}
                   </Show>
                 </Match>
