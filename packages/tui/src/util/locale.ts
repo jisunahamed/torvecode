@@ -47,15 +47,16 @@ export function duration(input: number) {
   return `${days}d ${hours}h`
 }
 
-export function truncate(str: string, len: number): string {
-  if (str.length <= len) return str
-  return str.slice(0, len - 1) + "…"
-}
-
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
-export function graphemes(str: string) {
+export function graphemes(str: string): string[] {
   return Array.from(graphemeSegmenter.segment(str), (item) => item.segment)
+}
+
+export function truncate(str: string, len: number): string {
+  const chars = graphemes(str)
+  if (chars.length <= len) return str
+  return chars.slice(0, Math.max(0, len - 1)).join("") + "…"
 }
 
 export function takeWidth(str: string, width: number) {
@@ -81,18 +82,20 @@ export function truncateWidth(str: string, width: number): string {
 }
 
 export function truncateLeft(str: string, len: number): string {
-  if (str.length <= len) return str
-  return "…" + str.slice(-(len - 1))
+  const chars = graphemes(str)
+  if (chars.length <= len) return str
+  return "…" + chars.slice(-Math.max(1, len - 1)).join("")
 }
 
 export function truncateMiddle(str: string, maxLength: number = 35): string {
-  if (str.length <= maxLength) return str
+  const chars = graphemes(str)
+  if (chars.length <= maxLength) return str
 
   const ellipsis = "…"
-  const keepStart = Math.ceil((maxLength - ellipsis.length) / 2)
-  const keepEnd = Math.floor((maxLength - ellipsis.length) / 2)
+  const keepStart = Math.ceil((maxLength - 1) / 2)
+  const keepEnd = Math.floor((maxLength - 1) / 2)
 
-  return str.slice(0, keepStart) + ellipsis + str.slice(-keepEnd)
+  return chars.slice(0, keepStart).join("") + ellipsis + (keepEnd > 0 ? chars.slice(-keepEnd).join("") : "")
 }
 
 export * as Locale from "./locale"

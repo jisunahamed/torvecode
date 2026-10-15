@@ -401,6 +401,11 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
           Flag.withDescription("Model to use in the format provider/model#variant"),
           Flag.optional,
         ),
+        reasoning: Flag.String("reasoning").pipe(
+          Flag.withAlias("r"),
+          Flag.withDescription("Model reasoning effort or variant (e.g. low, medium, high)"),
+          Flag.optional,
+        ),
         agent: Flag.String("agent").pipe(Flag.withDescription("Agent to use"), Flag.optional),
         format: Flag.Literals("format", ["default", "json"]).pipe(
           Flag.withDescription("Output format"),

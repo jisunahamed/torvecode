@@ -14,6 +14,8 @@ export const Typewriter = <T extends ValidComponent = "p">(props: { text?: strin
 
     if (!text) return
 
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    const graphemes = Array.from(segmenter.segment(text), (s) => s.segment)
     let i = 0
     const timeouts: ReturnType<typeof setTimeout>[] = []
     setStore("typing", true)
@@ -31,8 +33,8 @@ export const Typewriter = <T extends ValidComponent = "p">(props: { text?: strin
     }
 
     const type = () => {
-      if (i < text.length) {
-        setStore("displayed", text.slice(0, i + 1))
+      if (i < graphemes.length) {
+        setStore("displayed", graphemes.slice(0, i + 1).join(""))
         i++
         timeouts.push(setTimeout(type, getTypingDelay()))
       } else {

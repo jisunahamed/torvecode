@@ -959,7 +959,7 @@ function App() {
         title: "Switch model variant",
         category: "Agent",
         palette: local.model.variant.list().length === 0 ? undefined : (true as const),
-        slash: { name: "variants", aliases: ["thinking", "effort"] },
+        slash: { name: "variants", aliases: ["thinking", "effort", "reasoning"] },
         run: () => {
           if (local.model.variant.list().length === 0) {
             return toast.show({

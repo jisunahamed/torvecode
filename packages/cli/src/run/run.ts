@@ -19,6 +19,7 @@ export type RunCommandInput = {
   session?: string
   fork?: boolean
   model?: string
+  reasoning?: string
   agent?: string
   format: "default" | "json"
   file: string[]
@@ -60,7 +61,7 @@ class RunTargetError extends Error {
 const ATTACH_FILE_MAX_BYTES = 10 * 1024 * 1024
 
 export function runNonInteractive(input: RunCommandInput) {
-  return runNonInteractiveWithOptions(input, {})
+  return runNonInteractiveWithOptions(input, { variant: input.reasoning })
 }
 
 /** @internal Used only by the V1 command boundary. */

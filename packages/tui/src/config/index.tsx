@@ -317,6 +317,7 @@ export function resolve(
       : undefined,
     session: {
       ...input.session,
+      sidebar: input.session?.sidebar ?? "hide",
       new_location: input.session?.new_location ?? "launch",
       permissions: input.session?.permissions ?? "prompt",
       tps: input.session?.tps ?? true,

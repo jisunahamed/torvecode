@@ -6,8 +6,15 @@ const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 const textEmoji = /^\p{Emoji}\p{Mark}*$/u
 const emojiPresentation = /^\p{Emoji_Presentation}/u
 
-export function stringWidth(value: string) {
-  return Array.from(graphemes.segment(stripAnsi(value))).reduce((total, part) => {
+export function stringWidth(value: string): number {
+  if (!value) return 0
+  const stripped = stripAnsi(value)
+  if (!stripped) return 0
+  // Fast path for pure ASCII printable strings (ASCII 32 to 126)
+  if (!/[^\x20-\x7E]/.test(stripped)) {
+    return stripped.length
+  }
+  return Array.from(graphemes.segment(stripped)).reduce((total, part) => {
     const width = measure(part.segment)
     const codePoint = part.segment.codePointAt(0)
     if (

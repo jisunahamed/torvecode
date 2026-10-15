@@ -6,7 +6,7 @@ node_modules
 .env.local
 .idea
 .vscode
-.codex
+.codex*
 *~
 playground
 tmp
@@ -27,6 +27,7 @@ a.out
 target
 .scripts
 .cache
+.bun-cache
 .direnv/
 
 # Local dev files

@@ -135,7 +135,10 @@ export function PromptInterruptStatus(props: {
 
   return (
     <text fg={props.armed ? armedColor() : props.text} wrapMode="none" truncate flexShrink={1}>
-      esc{" "}
+      <span style={{ fg: props.subdued }}>[</span>
+      esc
+      <span style={{ fg: props.subdued }}>]</span>
+      {" "}
       <span style={{ fg: props.armed ? armedColor() : props.subdued }}>
         {props.armed ? "again to interrupt" : "interrupt"}
       </span>
@@ -1629,21 +1632,29 @@ export function Prompt(props: PromptProps) {
   })
 
   const spinnerDef = createMemo(() => {
-    const color = promptDisplay().agentColor ?? theme.border.base
+    const color =
+      promptDisplay().agentColor ??
+      theme.hue?.primary?.[400] ??
+      theme.text?.feedback?.info?.base ??
+      RGBA.fromHex("#00e5ff")
     return {
       frames: createFrames({
         color,
-        style: "blocks",
-        inactiveFactor: 0.6,
-        // enableFading: false,
-        minAlpha: 0.3,
+        style: "cyber",
+        width: 8,
+        holdStart: 1,
+        holdEnd: 1,
+        inactiveFactor: 0.25,
+        minAlpha: 0.2,
       }),
       color: createColors({
         color,
-        style: "blocks",
-        inactiveFactor: 0.6,
-        // enableFading: false,
-        minAlpha: 0.3,
+        style: "cyber",
+        width: 8,
+        holdStart: 1,
+        holdEnd: 1,
+        inactiveFactor: 0.25,
+        minAlpha: 0.2,
       }),
     }
   })
@@ -1861,12 +1872,16 @@ export function Prompt(props: PromptProps) {
               >
                 <Switch>
                   <Match when={status() === "running"}>
-                    <box flexDirection="row" gap={1} flexGrow={1} justifyContent="flex-start">
+                    <box flexDirection="row" gap={1} flexGrow={1} justifyContent="flex-start" alignItems="center">
                       <box marginLeft={1}>
                         <Show when={config.animations ?? true} fallback={<text fg={theme.text.muted}>[⋯]</text>}>
-                          <spinner color={spinnerDef().color} frames={spinnerDef().frames} interval={40} />
+                          <spinner color={spinnerDef().color} frames={spinnerDef().frames} interval={28} />
                         </Show>
                       </box>
+                      <text fg={theme.text.muted} wrapMode="none" truncate flexShrink={1}>
+                        <span style={{ fg: theme.text.base }}>Torve AI is thinking</span>
+                        <span style={{ fg: theme.text.muted }}> · </span>
+                      </text>
                       <PromptInterruptStatus
                         armed={store.interrupt > 0}
                         animations={animationsEnabled()}

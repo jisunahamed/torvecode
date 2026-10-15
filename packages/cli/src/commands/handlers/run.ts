@@ -19,6 +19,7 @@ export default Runtime.handler(Commands.commands.run, (input) =>
         session: Option.getOrUndefined(input.session),
         fork: input.fork,
         model: Option.getOrUndefined(input.model),
+        reasoning: Option.getOrUndefined(input.reasoning),
         agent: Option.getOrUndefined(input.agent),
         format: input.format,
         file: [...input.file],

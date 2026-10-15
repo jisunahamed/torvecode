@@ -243,7 +243,7 @@ export function deriveInactiveColor(brightColor: ColorInput, factor: number = 0.
   return RGBA.fromValues(baseRgba.r, baseRgba.g, baseRgba.b, factor)
 }
 
-export type KnightRiderStyle = "blocks" | "diamonds"
+export type KnightRiderStyle = "blocks" | "diamonds" | "pulse" | "cyber" | "spectrum" | "wave"
 
 export interface KnightRiderOptions {
   width?: number
@@ -272,8 +272,8 @@ export interface KnightRiderOptions {
 export function createFrames(options: KnightRiderOptions = {}): string[] {
   const width = options.width ?? 8
   const style = options.style ?? "diamonds"
-  const holdStart = options.holdStart ?? 30
-  const holdEnd = options.holdEnd ?? 9
+  const holdStart = options.holdStart ?? 4
+  const holdEnd = options.holdEnd ?? 3
 
   const colors =
     options.colors ??
@@ -310,8 +310,40 @@ export function createFrames(options: KnightRiderOptions = {}): string[] {
     return Array.from({ length: width }, (_, charIndex) => {
       const index = calculateColorIndex(frameIndex, charIndex, width, trailOptions)
 
+      if (style === "cyber") {
+        const shapes = ["⬢", "⬡", "◈", "◇"]
+        if (index >= 0 && index < trailOptions.colors.length) {
+          return shapes[Math.min(index, shapes.length - 1)]
+        }
+        return "·"
+      }
+
+      if (style === "pulse") {
+        const shapes = ["●", "◉", "○", "◌"]
+        if (index >= 0 && index < trailOptions.colors.length) {
+          return shapes[Math.min(index, shapes.length - 1)]
+        }
+        return "·"
+      }
+
+      if (style === "spectrum") {
+        const shapes = ["█", "▇", "▆", "▅", "▄", "▃", "▂"]
+        if (index >= 0 && index < trailOptions.colors.length) {
+          return shapes[Math.min(index, shapes.length - 1)]
+        }
+        return " "
+      }
+
+      if (style === "wave") {
+        const shapes = ["⠾", "⠿", "⠷", "⠇", "⠆", "⠂"]
+        if (index >= 0 && index < trailOptions.colors.length) {
+          return shapes[Math.min(index, shapes.length - 1)]
+        }
+        return "·"
+      }
+
       if (style === "diamonds") {
-        const shapes = ["⬥", "◆", "⬩", "⬪"]
+        const shapes = ["◆", "◈", "◇", "⬩"]
         if (index >= 0 && index < trailOptions.colors.length) {
           return shapes[Math.min(index, shapes.length - 1)]
         }
@@ -334,8 +366,8 @@ export function createFrames(options: KnightRiderOptions = {}): string[] {
  * @returns ColorGenerator function
  */
 export function createColors(options: KnightRiderOptions = {}): ColorGenerator {
-  const holdStart = options.holdStart ?? 30
-  const holdEnd = options.holdEnd ?? 9
+  const holdStart = options.holdStart ?? 4
+  const holdEnd = options.holdEnd ?? 3
 
   const colors =
     options.colors ??
