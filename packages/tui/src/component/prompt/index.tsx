@@ -1634,7 +1634,7 @@ export function Prompt(props: PromptProps) {
   const spinnerDef = createMemo(() => {
     const color =
       promptDisplay().agentColor ??
-      theme.hue?.primary?.[400] ??
+      theme.hue?.accent?.[500] ??
       theme.text?.feedback?.info?.base ??
       RGBA.fromHex("#00e5ff")
     return {
