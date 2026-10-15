@@ -140,12 +140,7 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orElseSucceed(() => undefined))
     if (!manifest) return
     if (manifest.name.startsWith("@torveai/cli-")) {
-      const root = path.resolve(directory, "../../..")
-      const cli: { name: string; optionalDependencies?: Record<string, string> } | undefined = yield* fs
-        .readFileString(path.join(root, "package.json"))
-        .pipe(Effect.flatMap((text) => Effect.try(() => JSON.parse(text))))
-        .pipe(Effect.orElseSucceed(() => undefined))
-      if (cli?.name === "@torveai/cli" && cli.optionalDependencies?.[manifest.name]) return cli.name
+      return "@torveai/cli"
     }
     // Source invocations run inside Bun or Node, which may themselves be npm packages.
     if (!/^@(?:opencode(?:-ai)?|torveai)\/cli(?:-node)?$/.test(manifest.name)) return
@@ -168,8 +163,12 @@ const make = Effect.gen(function* () {
   })
 
   const exec = Effect.fnUntraced(function* (command: string[], timeout: Duration.Input = "10 seconds") {
+    const isWindows = process.platform === "win32"
+    const isCmd = isWindows && ["npm", "pnpm", "yarn", "bun", "vp"].includes(command[0])
+    const file = isCmd ? (process.env.ComSpec || "cmd.exe") : command[0]
+    const args = isCmd ? ["/d", "/s", "/c", ...command] : command.slice(1)
     return yield* appProcess
-      .run(ChildProcess.make(command[0], command.slice(1)), {
+      .run(ChildProcess.make(file, args), {
         timeout,
         maxOutputBytes: 100_000,
         maxErrorBytes: 100_000,
