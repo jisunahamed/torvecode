@@ -16,7 +16,7 @@ const sourceCommand = packageJson.torveSourceBinary ?? packageJson.opencodeSourc
 
 const platform = { darwin: "darwin", linux: "linux", win32: "win32" }[os.platform()] ?? os.platform()
 const arch = { x64: "x64", arm64: "arm64", arm: "arm" }[os.arch()] ?? os.arch()
-const sourceBinary = platform === "windows" ? `${sourceCommand}.exe` : sourceCommand
+const sourceBinary = platform === "win32" ? `${sourceCommand}.exe` : sourceCommand
 const targetBinary = path.resolve(directory, packageJson.bin[command])
 const dependencies = packageJson.optionalDependencies ?? {}
 const base = Object.keys(dependencies).find((name) => name.endsWith(`-${platform}-${arch}`))
