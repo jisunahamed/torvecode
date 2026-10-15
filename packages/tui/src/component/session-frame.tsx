@@ -30,6 +30,7 @@ import { useTheme } from "../context/theme"
 import { useLocal } from "../context/local"
 import { useClient } from "../context/client"
 import { useTuiApp } from "../context/runtime"
+import { contextUsage } from "../util/session"
 
 export function SessionFrame(props: { sessionID: string; verticalTabsWidth: number }) {
   const sessions = useSessionTerminals()
@@ -45,6 +46,22 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
   const local = useLocal()
   const client = useClient()
   const app = useTuiApp()
+  const theme = useTheme()
+  const tokenStatus = createMemo(() => {
+    const current = data.session.get(props.sessionID)
+    const messages = data.session.message.list(props.sessionID)
+    const totals = messages.reduce(
+      (result, message) => {
+        if (message.type !== "assistant" || !message.tokens) return result
+        result.input += message.tokens.input + message.tokens.cache.read + message.tokens.cache.write
+        result.output += message.tokens.output + message.tokens.reasoning
+        return result
+      },
+      { input: 0, output: 0 },
+    )
+    const context = contextUsage(messages, data.location.model.list(current?.location), current?.revert?.messageID)
+    return { ...totals, context }
+  })
   const availableWidth = () => Math.max(0, dimensions().width - props.verticalTabsWidth)
   const defaultPaneWidth = () => Math.max(1, Math.floor(panels.width() / 2))
   const [layout, updateLayout] = useStorage().store<{ paneWidth?: number; terminalWidth?: number }>("layout", {
@@ -193,6 +210,7 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
     commands: [
       {
         id: "session.sidebar.toggle",
+        bind: "ctrl+b",
         title: rightPane() === "sidebar" ? "Hide sidebar" : "Show sidebar",
         group: "Session",
         palette: true,
@@ -307,6 +325,7 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
               verticalTabsWidth={props.verticalTabsWidth}
               promptMuted={activePane() !== "session"}
               sidebarVisible={rightPane() === "sidebar"}
+              inlineSidebar={rightPane() === "sidebar" && wide()}
               onToggleSidebar={toggleSidebar}
               terminals={sessions.available()}
               visibleTerminalID={rightPane() === "terminal" ? selectedTerminal()?.id : undefined}
@@ -339,7 +358,7 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
             />
           </Show>
         </box>
-        <Show when={rightPane() === "terminal" || rightPane() === "panel" || (rightPane() === "sidebar" && wide())}>
+        <Show when={rightPane() === "terminal" || rightPane() === "panel"}>
           <box
             ref={(value: BoxRenderable) => (rightNode = value)}
             flexShrink={0}
@@ -413,6 +432,32 @@ export function SessionFrame(props: { sessionID: string; verticalTabsWidth: numb
           </box>
         </Show>
       </box>
+      <box
+        height={2}
+        flexShrink={0}
+        flexDirection="row"
+        paddingLeft={2}
+        paddingRight={2}
+        border={["top"]}
+        borderColor={theme.border.base}
+      >
+        <text fg={theme.text.muted} wrapMode="none">
+          IN {tokenStatus().input.toLocaleString()} · OUT {tokenStatus().output.toLocaleString()}
+          <Show when={tokenStatus().context}>
+            {(value) => (
+              <>
+                {" "}
+                · context {value().tokens.toLocaleString()}
+                {value().percent === undefined ? "" : ` (${value().percent}%)`}
+              </>
+            )}
+          </Show>
+        </text>
+        <box flexGrow={1} />
+        <text fg={theme.text.muted} wrapMode="none">
+          ctrl+? help
+        </text>
+      </box>
     </box>
   )
 }
@@ -430,14 +475,14 @@ function SessionHeader(props: {
   const dimensions = useTerminalDimensions()
   const session = createMemo(() => data.session.get(props.sessionID))
   const workspace = createMemo(() => session()?.location.directory ?? "workspace")
-  const compact = () => dimensions().width < 78
+  const compact = () => dimensions().width < 100
   const connected = () => props.status === "connected"
   const connectionLabel = () =>
     connected() ? "Connected" : props.status === "reconnecting" ? "Reconnecting" : "Connecting"
 
   return (
     <box
-      height={3}
+      height={2}
       flexShrink={0}
       flexDirection="row"
       alignItems="center"
@@ -447,7 +492,7 @@ function SessionHeader(props: {
       border={["bottom"]}
       borderColor={theme.border.base}
     >
-      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} wrapMode="none">
+      <text fg={theme.text.base} attributes={TextAttributes.BOLD} wrapMode="none" flexShrink={0}>
         ⬡ TorveCode
       </text>
       <Show when={!compact()}>

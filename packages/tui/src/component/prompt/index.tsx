@@ -13,7 +13,6 @@ import { useLocal } from "../../context/local"
 import { useTheme, useThemes } from "../../context/theme"
 import { tint } from "../../theme/color"
 import { createAnimatable, tween } from "../../ui/animation"
-import { EmptyBorder, SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { useClipboard } from "../../context/clipboard"
 import { Spinner } from "../spinner"
@@ -1582,7 +1581,7 @@ export function Prompt(props: PromptProps) {
   createEffect(() => {
     if (agentLabel()) revealedPromptMetadata.add(local)
   })
-  const borderHighlight = createMemo(() => tint(theme.border.base, highlight(), agentMetaAlpha()))
+  const borderHighlight = createMemo(() => (muted() ? theme.border.base : theme.text.formfield.focused))
   const footerInput = () => ({
     sessionID: props.sessionID,
     mode: store.mode,
@@ -1596,7 +1595,7 @@ export function Prompt(props: PromptProps) {
         return `Run a command… "${shell()[store.placeholder % shell().length]}"`
       }
       if (!list().length) return undefined
-      return `Ask anything… "${list()[store.placeholder % list().length]}"`
+      return "Ask anything or type / for commands…"
     })()
     if (!value) return undefined
     const width = dimensions().width < 44 ? dimensions().width - 5 : Math.min(75, dimensions().width - 4) - 5
@@ -1650,20 +1649,12 @@ export function Prompt(props: PromptProps) {
   })
   const maxHeight = createMemo(() => Math.max(6, Math.floor(dimensions().height / 3)))
 
-  const promptBg = createMemo(() => theme.decrease(theme.background.raised.base))
+  const promptBg = createMemo(() => theme.background.base)
 
   return (
     <>
       <box ref={(r: BoxRenderable) => (anchor = r)} visible={props.visible !== false} width="100%">
-        <box
-          width="100%"
-          border={["left", "top", "right"]}
-          borderColor={borderHighlight()}
-          customBorderChars={{
-            ...SplitBorder.customBorderChars,
-            bottomLeft: "╹",
-          }}
-        >
+        <box width="100%" border borderStyle="rounded" borderColor={borderHighlight()}>
           <box
             paddingLeft={dimensions().width < 44 ? 1 : 2}
             paddingRight={dimensions().width < 44 ? 1 : 2}
@@ -1829,7 +1820,17 @@ export function Prompt(props: PromptProps) {
               cursorColor={disabled() ? theme.background.raised.base : theme.text.base}
               syntaxStyle={syntax()}
             />
-            <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
+            <box
+              flexDirection="row"
+              flexShrink={0}
+              paddingTop={0}
+              paddingBottom={0}
+              gap={1}
+              justifyContent="space-between"
+            >
+              <Show when={dimensions().width >= 100}>
+                <text fg={theme.text.muted}>@ files / commands · Enter to send</text>
+              </Show>
               <PromptMetadataRow
                 mode={store.mode}
                 agent={agentLabel()}
@@ -1845,32 +1846,6 @@ export function Prompt(props: PromptProps) {
               />
             </box>
           </box>
-        </box>
-        <box
-          height={1}
-          border={["left", "right"]}
-          borderColor={borderHighlight()}
-          customBorderChars={{
-            ...EmptyBorder,
-            vertical: promptBg().a !== 0 ? "╹" : " ",
-          }}
-        >
-          <box
-            height={1}
-            border={["bottom"]}
-            borderColor={promptBg()}
-            customBorderChars={
-              promptBg().a !== 0
-                ? {
-                    ...EmptyBorder,
-                    horizontal: "▀",
-                  }
-                : {
-                    ...EmptyBorder,
-                    horizontal: " ",
-                  }
-            }
-          />
         </box>
         <box width="100%" flexDirection="row" justifyContent="space-between" gap={2}>
           <Slot path="prompt.footer" input={footerInput()}>

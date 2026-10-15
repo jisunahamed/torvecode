@@ -22,6 +22,9 @@ async function publish(dir: string, name: string, version: string) {
   const exists = !dryRun && (await published(name, version))
   if (exists) console.log(`already published ${name}@${version}`)
   // Keep local tarballs available to downstream publishers when retrying a release.
+  await Promise.all(
+    Array.from(new Bun.Glob("*.tgz").scanSync({ cwd: dir })).map((file) => rm(path.join(dir, file), { force: true })),
+  )
   await $`bun pm pack`.cwd(dir)
   if (!exists && !dryRun) await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
 }
@@ -155,7 +158,8 @@ if ((Script.channel === "beta" || Script.channel === "latest") && Script.release
 }
 
 async function archive(bin: string, target: string, binary: string, directory: string) {
-  const executable = `${binary}${target.startsWith("windows-") ? ".exe" : ""}`
+  const windows = target.startsWith("windows-") || target.startsWith("win32-")
+  const executable = `${binary}${windows ? ".exe" : ""}`
   const source = path.join(bin, executable)
   if (!(await Bun.file(source).exists()) || !Bun.file(source).size) throw new Error(`Missing binary: ${source}`)
   // GitHub artifact downloads lose execute bits. Fixed timestamps make retries reproducible.
@@ -167,6 +171,8 @@ async function archive(bin: string, target: string, binary: string, directory: s
   if (extension === "tar.gz") {
     await $`tar --mtime=@0 --owner=0 --group=0 --numeric-owner -czf ${output} -C ${bin} ${executable}`
   }
-  if (extension === "zip") await $`zip -X -q ${output} ${executable}`.cwd(bin)
+  if (extension === "zip" && process.platform === "win32")
+    await $`tar -a -cf ${output} -C ${bin} ${executable}`
+  if (extension === "zip" && process.platform !== "win32") await $`zip -X -q ${output} ${executable}`.cwd(bin)
   return output
 }

@@ -1,3 +1,5 @@
+import { Sidebar } from "./sidebar"
+import { SESSION_SIDEBAR_WIDTH } from "../../ui/layout"
 import {
   batch,
   createEffect,
@@ -146,6 +148,7 @@ export function Session(props: {
   scrollRef?: (scroll: ScrollBoxRenderable | undefined) => void
   verticalTabsWidth: number
   promptMuted?: boolean
+  inlineSidebar?: boolean
   sidebarVisible: boolean
   onToggleSidebar: () => void
   terminals?: boolean
@@ -252,7 +255,12 @@ export function Session(props: {
     enabled: () => props.sidebarVisible && dimensions().width - props.verticalTabsWidth <= 120 && !disabled(),
     commands: [{ bind: "escape,ctrl+c", title: "Close sidebar", group: "Session", run: props.onToggleSidebar }],
   }))
-  const contentWidth = createMemo(() => (props.width ?? dimensions().width - props.verticalTabsWidth) - 4)
+  const contentWidth = createMemo(
+    () =>
+      (props.width ?? dimensions().width - props.verticalTabsWidth) -
+      4 -
+      (props.inlineSidebar ? SESSION_SIDEBAR_WIDTH : 0),
+  )
   const models = createMemo(() => data.location.model.list(location()) ?? [])
 
   const scrollAcceleration = createMemo(() => getScrollAcceleration(config))
@@ -1400,59 +1408,64 @@ export function Session(props: {
           paddingRight={dimensions().width < 44 ? 1 : 2}
         >
           <Show when={session()}>
-            <box flexGrow={1} minHeight={0} position="relative">
-              <scrollbox
-                ref={(r) => {
-                  scroll = r
-                  props.scrollRef?.(r)
-                  scroll.verticalScrollBar.on("change", updateAwayFromBottom)
-                  scroll.content.on("resize", holdAnchor)
-                }}
-                viewportOptions={{
-                  paddingRight: showScrollbar() ? 1 : 0,
-                }}
-                verticalScrollbarOptions={{
-                  paddingLeft: 1,
-                  visible: showScrollbar(),
-                  trackOptions: {
-                    backgroundColor: theme.decrease(theme.background.raised.base),
-                    foregroundColor: theme.border.base,
-                  },
-                }}
-                stickyScroll={!navigationMessage() && !navigationSlack()}
-                stickyStart="bottom"
-                flexGrow={1}
-                scrollAcceleration={scrollAcceleration()}
-                onMouseScroll={(event) => {
-                  if (firstJump()) clearMessageNavigation()
-                  if (event.scroll?.direction === "up" && revealOlderRows()) return
-                  if (event.scroll?.direction === "down" && revealNewerRows()) return
-                  updateAwayFromBottom()
-                }}
-              >
-                <Show when={!firstJump() && messages().length === 0}>
-                  <SessionWelcome width={contentWidth()} height={terminalHeight()} />
-                </Show>
-                <For each={visibleRows()}>
-                  {(row, index) => (
-                    <SessionRowView
-                      row={row}
-                      message={(messageID) => data.session.message.get(route.sessionID, messageID)}
-                      boundaryID={boundaries()[index() + hidden()]}
+            <box flexGrow={1} minHeight={0} minWidth={0} flexDirection="row">
+              <box flexGrow={1} minHeight={0} minWidth={0} position="relative">
+                <scrollbox
+                  ref={(r) => {
+                    scroll = r
+                    props.scrollRef?.(r)
+                    scroll.verticalScrollBar.on("change", updateAwayFromBottom)
+                    scroll.content.on("resize", holdAnchor)
+                  }}
+                  viewportOptions={{
+                    paddingRight: showScrollbar() ? 1 : 0,
+                  }}
+                  verticalScrollbarOptions={{
+                    paddingLeft: 1,
+                    visible: showScrollbar(),
+                    trackOptions: {
+                      backgroundColor: theme.decrease(theme.background.raised.base),
+                      foregroundColor: theme.border.base,
+                    },
+                  }}
+                  stickyScroll={!navigationMessage() && !navigationSlack()}
+                  stickyStart="bottom"
+                  flexGrow={1}
+                  scrollAcceleration={scrollAcceleration()}
+                  onMouseScroll={(event) => {
+                    if (firstJump()) clearMessageNavigation()
+                    if (event.scroll?.direction === "up" && revealOlderRows()) return
+                    if (event.scroll?.direction === "down" && revealNewerRows()) return
+                    updateAwayFromBottom()
+                  }}
+                >
+                  <Show when={!firstJump() && messages().length === 0}>
+                    <SessionWelcome width={contentWidth()} height={terminalHeight()} />
+                  </Show>
+                  <For each={visibleRows()}>
+                    {(row, index) => (
+                      <SessionRowView
+                        row={row}
+                        message={(messageID) => data.session.message.get(route.sessionID, messageID)}
+                        boundaryID={boundaries()[index() + hidden()]}
+                      />
+                    )}
+                  </For>
+                  <BackgroundToolHint messages={messages()} />
+                  <Show when={session()?.revert?.messageID}>
+                    <RevertMessage
+                      count={messagesFromRevert().filter((message) => message.type === "user").length}
+                      files={session()!.revert!.files ?? []}
                     />
-                  )}
-                </For>
-                <BackgroundToolHint messages={messages()} />
-                <Show when={session()?.revert?.messageID}>
-                  <RevertMessage
-                    count={messagesFromRevert().filter((message) => message.type === "user").length}
-                    files={session()!.revert!.files ?? []}
-                  />
-                </Show>
-                <Show when={navigationSlack()}>
-                  {(height) => <box id={NAVIGATION_SLACK_ID} height={height()} flexShrink={0} />}
-                </Show>
-              </scrollbox>
+                  </Show>
+                  <Show when={navigationSlack()}>
+                    {(height) => <box id={NAVIGATION_SLACK_ID} height={height()} flexShrink={0} />}
+                  </Show>
+                </scrollbox>
+              </box>
+              <Show when={props.inlineSidebar}>
+                <Sidebar sessionID={route.sessionID} />
+              </Show>
             </box>
             <box height={1} flexShrink={0} flexDirection="row" justifyContent="flex-end">
               <Show when={firstJump()}>
@@ -1466,9 +1479,7 @@ export function Session(props: {
                   onMouseOut={() => setLatestHovered(false)}
                   onMouseUp={toBottom}
                 >
-                  <text
-                    fg={latestHovered() ? theme.text.action.secondary.hovered : theme.text.action.secondary.base}
-                  >
+                  <text fg={latestHovered() ? theme.text.action.secondary.hovered : theme.text.action.secondary.base}>
                     Jump to latest ↓
                   </text>
                 </box>
@@ -1514,12 +1525,7 @@ export function Session(props: {
                     }}
                   </Show>
                 </Match>
-                <Match
-                  when={
-                    session() &&
-                    currentLocation.error?.location.directory === session()!.location.directory
-                  }
-                >
+                <Match when={session() && currentLocation.error?.location.directory === session()!.location.directory}>
                   <SessionLocationMissing
                     directory={session()!.location.directory}
                     projectID={session()!.projectID}
@@ -1926,6 +1932,7 @@ function SessionPartView(props: {
               part={item() as SessionMessageAssistantText}
               message={message() as SessionMessageAssistant}
               last={false}
+              label={props.partRef.partID === "text:0"}
             />
           </Match>
           <Match when={item().type === "reasoning"}>
@@ -2279,8 +2286,6 @@ function ShellMessage(props: { message: Extract<SessionMessageInfo, { type: "she
 
 function UserMessage(props: { message: SessionMessageUser }) {
   const ctx = use()
-  const data = useData()
-  const local = useLocal()
   const files = createMemo(() => deduplicateVisibleImages(props.message.files ?? []))
   const skills = createMemo(() => props.message.skills ?? [])
   const images = createMemo(() =>
@@ -2292,7 +2297,6 @@ function UserMessage(props: { message: SessionMessageUser }) {
   const theme = useTheme()
   const mode = themes.mode
   const [hover, setHover] = createSignal(false)
-  const color = createMemo(() => local.agent.color(data.session.get(ctx.sessionID)?.agent ?? "build"))
   const delivery = createMemo(() => ctx.pendingDelivery(props.message.id))
   const dialog = useDialog()
   const renderer = useRenderer()
@@ -2304,12 +2308,7 @@ function UserMessage(props: { message: SessionMessageUser }) {
 
   return (
     <Show when={props.message.text.trim() || files().length || skills().length}>
-      <box
-        border={["left"]}
-        borderColor={delivery() ? theme.border.base : color()}
-        customBorderChars={SplitBorder.customBorderChars}
-        backgroundColor={theme.background.raised.base}
-      >
+      <box border borderStyle="rounded" borderColor={theme.border.base} backgroundColor={theme.background.raised.base}>
         <SessionImages images={images()} paddingLeft={2} />
         <box
           onMouseOver={() => {
@@ -2351,6 +2350,9 @@ function UserMessage(props: { message: SessionMessageUser }) {
           backgroundColor={hover() ? theme.decrease(theme.background.raised.base) : theme.background.raised.base}
           flexShrink={0}
         >
+          <text fg={theme.text.muted}>
+            You {new Date(props.message.time.created).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </text>
           <text fg={theme.text.base}>{props.message.text}</text>
           <Show when={skills().length}>
             <box flexDirection="row" paddingTop={1} gap={1} flexWrap="wrap">
@@ -2825,9 +2827,7 @@ function BlockTool(props: BlockToolProps) {
               <Show
                 when={props.spinner}
                 fallback={
-                  <text
-                    fg={permission() ? theme.text.feedback.warning.base : (props.headerColor ?? theme.text.muted)}
-                  >
+                  <text fg={permission() ? theme.text.feedback.warning.base : (props.headerColor ?? theme.text.muted)}>
                     {title()}
                   </text>
                 }
@@ -3015,11 +3015,7 @@ function ShellDisplay(props: {
           <Show
             when={isRunning()}
             fallback={
-              <text
-                fg={theme.text.base}
-                wrapMode={expanded() ? "word" : "char"}
-                maxHeight={expanded() ? undefined : 2}
-              >
+              <text fg={theme.text.base} wrapMode={expanded() ? "word" : "char"} maxHeight={expanded() ? undefined : 2}>
                 {limitedInput()}
               </text>
             }
@@ -3120,7 +3116,9 @@ function Read(props: ToolProps) {
         Read {pathFormatter.format(stringValue(props.input.path))}
         <Show when={props.input.offset !== undefined || props.input.limit !== undefined}>
           :{finiteNumber(props.input.offset) || 1}-
-          {props.input.limit ? (finiteNumber(props.input.offset) || 1) + (finiteNumber(props.input.limit) || 0) - 1 : ""}
+          {props.input.limit
+            ? (finiteNumber(props.input.offset) || 1) + (finiteNumber(props.input.limit) || 0) - 1
+            : ""}
         </Show>
       </InlineTool>
       <For each={loaded()}>

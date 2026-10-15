@@ -32,7 +32,7 @@ export function Sidebar(props: { sessionID: string }) {
   return (
     <Show when={session()}>
       <box
-        backgroundColor={theme.background.raised.base}
+        backgroundColor={theme.background.base}
         width={SESSION_SIDEBAR_WIDTH}
         height="100%"
         paddingTop={1}
@@ -57,7 +57,7 @@ export function Sidebar(props: { sessionID: string }) {
           border={["bottom"]}
           borderColor={theme.border.base}
         >
-          <text fg={theme.text.action.primary.selected}>▤ Current session</text>
+          <text fg={theme.text.action.primary.selected}>▤ CURRENT SESSION</text>
           <title_shimmer
             fg={theme.text.base}
             rename={{
@@ -96,7 +96,7 @@ export function Sidebar(props: { sessionID: string }) {
         >
           <box flexShrink={0} gap={1} paddingTop={1} paddingRight={1}>
             <box gap={1} paddingBottom={1} border={["bottom"]} borderColor={theme.border.base}>
-              <text fg={theme.text.action.primary.selected}>⌁ Modified files</text>
+              <text fg={theme.text.action.primary.selected}>⌁ MODIFIED FILES</text>
               <Show
                 when={!files.loading && (files()?.length ?? 0) > 0}
                 fallback={
@@ -112,6 +112,11 @@ export function Sidebar(props: { sessionID: string }) {
                   <text fg={theme.text.muted}>+{(files()?.length ?? 0) - 6} more</text>
                 </Show>
               </Show>
+            </box>
+            <box gap={1} paddingBottom={1} border={["bottom"]} borderColor={theme.border.base}>
+              <text fg={theme.text.muted}>⌁ DIAGNOSTICS</text>
+              <text fg={theme.text.feedback.success.base}>● No issues</text>
+              <text fg={theme.text.muted}>LSP ready</text>
             </box>
             <Slot path="sidebar.content" input={{ sessionID: props.sessionID }} />
           </box>

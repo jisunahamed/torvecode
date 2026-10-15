@@ -168,6 +168,7 @@ function ReasoningHeader(props: {
 
 export function TextPart(props: {
   last: boolean
+  label?: boolean
   part: SessionMessageAssistantText
   message: SessionMessageAssistant
 }) {
@@ -177,7 +178,18 @@ export function TextPart(props: {
   const plugins = usePlugin()
   return (
     <Show when={props.part.text.trim()}>
-      <box paddingLeft={3} flexShrink={0}>
+      <box
+        marginLeft={3}
+        paddingLeft={2}
+        border={["left"]}
+        borderColor={theme.text.action.primary.selected}
+        flexShrink={0}
+      >
+        <Show when={props.label !== false}>
+          <text fg={theme.text.base} attributes={TextAttributes.BOLD}>
+            ⬡ TorveCode
+          </text>
+        </Show>
         {/* Configure custom nodes before parsing; apply content before streaming so completion keeps the final tokens. */}
         <markdown
           syntaxStyle={syntax()}

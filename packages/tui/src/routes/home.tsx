@@ -1,6 +1,5 @@
 import { Prompt, type PromptRef } from "../component/prompt"
 import { createEffect, createMemo, createSignal, onMount, Show, untrack } from "solid-js"
-import { Logo } from "../component/logo"
 import { useArgs } from "../context/args"
 import { useRouteData } from "../context/route"
 import { usePromptRef } from "../context/prompt"
@@ -16,7 +15,8 @@ import { useUpdateNotification } from "../context/update-notification"
 import { useExit } from "../context/exit"
 import { FadeInText } from "../component/fade-in-text"
 import { TextAttributes } from "@opentui/core"
-import { basename } from "node:path"
+import { Keymap } from "../context/keymap"
+import { useDialog } from "../ui/dialog"
 import { useClient } from "../context/client"
 import { useTuiApp } from "../context/runtime"
 
@@ -39,7 +39,23 @@ export function Home() {
   const theme = useTheme()
   const client = useClient()
   const app = useTuiApp()
-  const [logoWidth, setLogoWidth] = createSignal(0)
+  const dialog = useDialog()
+  const [sidebar, setSidebar] = createSignal(true)
+  Keymap.createLayer(() => ({
+    mode: "global",
+    enabled: () => dialog.stack.length === 0,
+    commands: [
+      {
+        id: "home.sidebar.toggle",
+        bind: "ctrl+b",
+        title: "Toggle sidebar",
+        palette: true,
+        run: () => {
+          setSidebar((value) => !value)
+        },
+      },
+    ],
+  }))
   // Global MCP elicitations can arrive without a session route, so keep them reachable from Home.
   const currentLocation = () => route.location ?? data.location.default()
   const forms = createMemo(() => data.session.form.list("global", currentLocation()) ?? [])
@@ -93,10 +109,11 @@ export function Home() {
           workspace={currentLocation().directory}
           model={local.model.current()?.modelID}
           status={client.connection.status()}
+          onToggleSidebar={() => setSidebar((value) => !value)}
         />
         <box flexGrow={1} minWidth={0} minHeight={0} flexDirection="row">
           <box flexGrow={1} minWidth={0} minHeight={0} paddingLeft={2} paddingRight={2}>
-            <box flexGrow={1} minHeight={0} paddingTop={dimensions().height < 24 ? 1 : 2}>
+            <box flexGrow={1} minHeight={0} paddingTop={1}>
               <box flexDirection="row" gap={2}>
                 <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} selectable={false}>
                   ›
@@ -112,38 +129,55 @@ export function Home() {
                   </Show>
                 </box>
               </box>
-              <Show when={dimensions().width >= 90 && dimensions().height >= 27}>
-                <box paddingTop={2} paddingLeft={3} flexDirection="row" gap={3}>
-                  <Logo compact />
-                  <box paddingTop={1} gap={1}>
-                    <text fg={theme.text.muted}>Start with a prompt, or type / for commands.</text>
-                    <text fg={theme.text.action.primary.selected}>/models   <span style={{ fg: theme.text.muted }}>Choose a Torve AI model</span></text>
-                    <text fg={theme.text.action.primary.selected}>/skills   <span style={{ fg: theme.text.muted }}>Browse coding skills</span></text>
-                    <text fg={theme.text.action.primary.selected}>/sessions <span style={{ fg: theme.text.muted }}>Open an earlier session</span></text>
-                    <text fg={theme.text.action.primary.selected}>/help     <span style={{ fg: theme.text.muted }}>See commands and shortcuts</span></text>
-                  </box>
+              <Show when={dimensions().width >= 58 && dimensions().height >= 22}>
+                <box
+                  marginTop={2}
+                  marginLeft={3}
+                  paddingTop={1}
+                  paddingBottom={1}
+                  paddingLeft={2}
+                  border
+                  borderStyle="rounded"
+                  borderColor={theme.border.base}
+                  gap={0}
+                  flexShrink={0}
+                >
+                  <text fg={theme.text.muted}>Here are some things you can try:</text>
+                  <text fg={theme.text.action.primary.selected}>
+                    /models <span style={{ fg: theme.text.muted }}>Choose a Torve AI model</span>
+                  </text>
+                  <text fg={theme.text.action.primary.selected}>
+                    /skills <span style={{ fg: theme.text.muted }}>Browse coding skills</span>
+                  </text>
+                  <text fg={theme.text.action.primary.selected}>
+                    /sessions <span style={{ fg: theme.text.muted }}>Open an earlier session</span>
+                  </text>
+                  <text fg={theme.text.action.primary.selected}>
+                    /help <span style={{ fg: theme.text.muted }}>See commands and shortcuts</span>
+                  </text>
                 </box>
               </Show>
               <box flexGrow={1} minHeight={0} />
-              <box
-                flexShrink={0}
-                onSizeChange={function () {
-                  setLogoWidth(this.width)
-                }}
-              >
-                <UpdateNotification width={logoWidth()} />
-              </box>
-            </box>
-            <box width="100%" zIndex={1000} flexShrink={0} position="relative" paddingBottom={1}>
-              <Prompt ref={bind} placeholders={placeholder} disabled={forms().length > 0} />
+              <UpdateNotification width={Math.max(1, dimensions().width - 34)} />
             </box>
           </box>
-          <Show when={dimensions().width >= 110}>
+          <Show when={dimensions().width >= 110 && sidebar()}>
             <HomeSidebar workspace={currentLocation().directory} connected={torveConnected(data)} />
           </Show>
         </box>
         <box
-          height={1}
+          width="100%"
+          zIndex={1000}
+          flexShrink={0}
+          paddingLeft={2}
+          paddingRight={2}
+          paddingTop={1}
+          paddingBottom={1}
+        >
+          <Prompt ref={bind} placeholders={placeholder} disabled={forms().length > 0} />
+        </box>
+        <box
+          height={2}
           flexShrink={0}
           flexDirection="row"
           paddingLeft={2}
@@ -151,7 +185,7 @@ export function Home() {
           border={["top"]}
           borderColor={theme.border.base}
         >
-          <text fg={theme.text.muted}>IN 0  ·  OUT 0  ·  context 0%</text>
+          <text fg={theme.text.muted}>IN 0 · OUT 0 · context 0%</text>
           <box flexGrow={1} />
           <text fg={theme.text.muted}>ctrl+? help</text>
         </box>
@@ -175,38 +209,55 @@ export function Home() {
   )
 }
 
-function HomeHeader(props: { version: string; workspace: string; model?: string; status: string }) {
+function HomeHeader(props: {
+  version: string
+  workspace: string
+  model?: string
+  status: string
+  onToggleSidebar: () => void
+}) {
   const theme = useTheme()
   const dimensions = useTerminalDimensions()
   const connected = () => props.status === "connected"
   return (
     <box
-      height={3}
+      height={2}
       flexShrink={0}
       flexDirection="row"
       alignItems="center"
       paddingLeft={2}
       paddingRight={1}
-      gap={dimensions().width < 78 ? 1 : 2}
+      gap={dimensions().width < 100 ? 1 : 2}
       border={["bottom"]}
       borderColor={theme.border.base}
     >
-      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD} wrapMode="none">
+      <text fg={theme.text.base} attributes={TextAttributes.BOLD} wrapMode="none" flexShrink={0}>
         ⬡ TorveCode
       </text>
-      <Show when={dimensions().width >= 78}>
+      <Show when={dimensions().width >= 100}>
         <text fg={theme.text.muted}>v{props.version}</text>
         <text fg={theme.border.base}>│</text>
-        <text fg={theme.text.base} truncate flexGrow={1} minWidth={8}>▱ {props.workspace}</text>
+        <text fg={theme.text.base} truncate flexGrow={1} minWidth={8}>
+          ▱ {props.workspace}
+        </text>
         <text fg={theme.border.base}>│</text>
       </Show>
-      <text fg={theme.text.base} truncate maxWidth={dimensions().width < 78 ? 20 : 30}>
+      <text fg={theme.text.base} truncate minWidth={0} maxWidth={dimensions().width < 100 ? 20 : 30}>
         ◇ {props.model ?? "Selecting model"}
       </text>
       <box flexGrow={1} minWidth={0} />
-      <text fg={connected() ? theme.text.feedback.success.base : theme.text.feedback.warning.base} wrapMode="none">
+      <text
+        fg={connected() ? theme.text.feedback.success.base : theme.text.feedback.warning.base}
+        wrapMode="none"
+        flexShrink={0}
+      >
         ● {connected() ? "Connected" : "Connecting"}
       </text>
+      <Show when={dimensions().width >= 110}>
+        <text fg={theme.text.muted} onMouseUp={props.onToggleSidebar}>
+          ctrl+b Toggle sidebar
+        </text>
+      </Show>
     </box>
   )
 }
@@ -215,31 +266,34 @@ function HomeSidebar(props: { workspace: string; connected: boolean }) {
   const theme = useTheme()
   return (
     <box
-      width={30}
+      width={34}
       height="100%"
       flexShrink={0}
       paddingTop={1}
       paddingBottom={1}
       paddingLeft={2}
       paddingRight={2}
-      backgroundColor={theme.background.raised.base}
+      backgroundColor={theme.background.base}
       border={["left"]}
       borderColor={theme.border.base}
       gap={1}
     >
-      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD}>▱ Workspace</text>
-      <text fg={theme.text.base} wrapMode="word">{props.workspace}</text>
+      <text fg={theme.text.action.primary.selected} attributes={TextAttributes.BOLD}>
+        ▱ Workspace
+      </text>
+      <text fg={theme.text.base} wrapMode="word">
+        {props.workspace}
+      </text>
       <box height={1} border={["bottom"]} borderColor={theme.border.base} />
-      <text fg={theme.text.action.primary.selected}>▤ Current session</text>
+      <text fg={theme.text.action.primary.selected}>▤ CURRENT SESSION</text>
       <text fg={theme.text.muted}>New session</text>
       <box height={1} border={["bottom"]} borderColor={theme.border.base} />
-      <text fg={theme.text.action.primary.selected}>⌁ Modified files</text>
+      <text fg={theme.text.action.primary.selected}>⌁ MODIFIED FILES</text>
       <text fg={theme.text.muted}>No modified files</text>
       <box height={1} border={["bottom"]} borderColor={theme.border.base} />
-      <text fg={theme.text.action.primary.selected}>⌁ Torve AI</text>
-      <text fg={props.connected ? theme.text.feedback.success.base : theme.text.feedback.warning.base}>
-        {props.connected ? "● Account connected" : "● Connection required"}
-      </text>
+      <text fg={theme.text.muted}>⌁ DIAGNOSTICS</text>
+      <text fg={theme.text.feedback.success.base}>● No issues</text>
+      <text fg={theme.text.muted}>{props.connected ? "Torve AI connected" : "Connection required"}</text>
     </box>
   )
 }
