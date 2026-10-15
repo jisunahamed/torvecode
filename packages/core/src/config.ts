@@ -134,7 +134,7 @@ export const layer = (options?: Options) =>
       })
 
       const loadFile = Effect.fnUntraced(function* (filepath: string) {
-        const text = yield* fs.readFileStringSafe(filepath)
+        const text = yield* fs.readFileStringSafe(filepath).pipe(Effect.orElseSucceed(() => undefined))
         if (text === undefined) return
         const substituted = yield* ConfigVariable.substitute({ type: "path", path: filepath, text })
         const info = yield* parseInfo(substituted, filepath)

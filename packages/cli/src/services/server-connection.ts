@@ -42,7 +42,7 @@ export const resolve = Effect.fn("cli.server-connection.resolve")(function* (arg
     return { endpoint: yield* Standalone.start() } satisfies Resolved
   }
 
-  const mismatch = args.mismatch ?? "ignore"
+  const mismatch = args.mismatch ?? "replace"
   const options = yield* ServiceConfig.options({ checkVersion: mismatch !== "ignore" })
   return {
     endpoint: yield* resolveManaged({ ...options, onStart: args.onStart }, mismatch),

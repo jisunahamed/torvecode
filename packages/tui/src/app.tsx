@@ -212,6 +212,7 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
   const location = yield* Effect.tryPromise(() => api.file.list({ location: { directory: process.cwd() } })).pipe(
     Effect.map((response) => response.location),
     Effect.catch(() => Effect.tryPromise(() => api.location.get())),
+    Effect.orElseSucceed(() => ({ directory: process.cwd(), project: undefined })),
   )
   const directory = location.directory
   const pluginDirectories = yield* Effect.promise(() => localPluginDirectories(process.cwd(), global.config))
