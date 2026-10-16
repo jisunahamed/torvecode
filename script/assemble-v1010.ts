@@ -1,11 +1,38 @@
 import fs from "fs"
 import path from "path"
+import zlib from "zlib"
 import { execSync } from "child_process"
 
 const cliDir = path.resolve("packages/cli")
 const v109Dir = path.join(cliDir, ".codex-release-v109")
 const v1010Dir = path.join(cliDir, ".codex-release-v1010")
 const packedDir = path.join(cliDir, ".codex-release-v1010-packed")
+
+// Helper: Ensure 0755 (-rwxr-xr-x) mode for binary entries inside tarball
+function fixTarMode(tarBuf: Buffer) {
+  let offset = 0
+  while (offset < tarBuf.length - 512) {
+    if (tarBuf[offset] === 0 && tarBuf[offset + 1] === 0) break
+    const name = tarBuf.toString("utf8", offset, offset + 100).replace(/\0.*$/, "")
+    if (name.includes("bin/torve") && !name.endsWith(".exe")) {
+      console.log(`Setting 0755 mode for ${name} in tarball`)
+      // Write 000755 \0 at offset + 100 (8 bytes)
+      tarBuf.write("000755 \0", offset + 100, 8, "ascii")
+
+      // Recalculate checksum
+      for (let i = 0; i < 8; i++) tarBuf[offset + 148 + i] = 0x20
+      let sum = 0
+      for (let i = 0; i < 512; i++) sum += tarBuf[offset + i]
+      const chkStr = sum.toString(8).padStart(6, "0") + "\0 "
+      tarBuf.write(chkStr, offset + 148, 8, "ascii")
+    }
+
+    const sizeStr = tarBuf.toString("utf8", offset + 124, offset + 136).replace(/\0.*$/, "").trim()
+    const size = parseInt(sizeStr, 8)
+    offset += 512 + Math.ceil(size / 512) * 512
+  }
+  return tarBuf
+}
 
 // 1. Create v1010 directories
 fs.rmSync(v1010Dir, { recursive: true, force: true })
@@ -19,7 +46,7 @@ const targetWinExe = path.join(v1010Dir, "cli-win32-x64", "bin", "torve.exe")
 fs.copyFileSync(freshWinExe, targetWinExe)
 console.log("Copied freshly built torve.exe to v1010/cli-win32-x64/bin/torve.exe")
 
-// 3. Update version in all 6 platform package.json files
+// 3. Update version and bin field in all 6 platform package.json files
 const platforms = [
   "cli-darwin-arm64",
   "cli-darwin-x64",
@@ -33,19 +60,35 @@ for (const plat of platforms) {
   const pkgPath = path.join(v1010Dir, plat, "package.json")
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"))
   pkg.version = "1.0.10"
+  pkg.bin = {
+    torve: plat.includes("win32") ? "bin/torve.exe" : "bin/torve",
+  }
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf8")
 
   // Pack the platform package
   console.log(`Packing ${plat}...`)
   execSync("npm pack", { cwd: path.join(v1010Dir, plat), stdio: "inherit" })
-  
-  // Move the .tgz file to packedDir
+
+  // Move the .tgz file to packedDir and fix POSIX permissions
   const files = fs.readdirSync(path.join(v1010Dir, plat))
   for (const f of files) {
     if (f.endsWith(".tgz")) {
-      fs.copyFileSync(path.join(v1010Dir, plat, f), path.join(packedDir, f))
-      fs.unlinkSync(path.join(v1010Dir, plat, f))
-      console.log(`Saved ${f} to packed directory.`)
+      const srcFile = path.join(v1010Dir, plat, f)
+      const destFile = path.join(packedDir, f)
+      
+      // Fix tar mode for non-Windows platforms
+      if (!plat.includes("win32")) {
+        const rawTgz = fs.readFileSync(srcFile)
+        const unzipped = zlib.gunzipSync(rawTgz)
+        fixTarMode(unzipped)
+        const fixedTgz = zlib.gzipSync(unzipped)
+        fs.writeFileSync(destFile, fixedTgz)
+        console.log(`Saved and mode-fixed ${f} in packed directory.`)
+      } else {
+        fs.copyFileSync(srcFile, destFile)
+        console.log(`Saved ${f} to packed directory.`)
+      }
+      fs.unlinkSync(srcFile)
     }
   }
 }

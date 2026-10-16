@@ -10,12 +10,17 @@ if (process.stdin.isTTY && process.stdout.isTTY) process.stdout.write("\x1b]0;To
 const forwardedSignals =
   process.platform === "win32" ? ["SIGINT", "SIGTERM", "SIGHUP"] : ["SIGINT", "SIGTERM", "SIGHUP", "SIGUSR1"]
 
-function run(target) {
-  const child = childProcess.spawn(target, process.argv.slice(2), { stdio: "inherit" })
-  child.on("error", (error) => {
-    console.error(error.message)
-    process.exit(1)
-  })
+function ensureExecutable(file) {
+  if (process.platform === "win32") return
+  try {
+    const stat = fs.statSync(file)
+    if ((stat.mode & 0o111) === 0) {
+      fs.chmodSync(file, 0o755)
+    }
+  } catch {}
+}
+
+function bindChild(child) {
   const forwarders = {}
   for (const signal of forwardedSignals) {
     forwarders[signal] = () => {
@@ -30,6 +35,45 @@ function run(target) {
     if (signal) return process.kill(process.pid, signal)
     process.exit(typeof code === "number" ? code : 0)
   })
+}
+
+function run(target) {
+  ensureExecutable(target)
+  let child
+  try {
+    child = childProcess.spawn(target, process.argv.slice(2), { stdio: "inherit" })
+  } catch (err) {
+    if (err && err.code === "EACCES" && process.platform !== "win32") {
+      try {
+        fs.chmodSync(target, 0o755)
+        child = childProcess.spawn(target, process.argv.slice(2), { stdio: "inherit" })
+      } catch (retryErr) {
+        console.error(retryErr.message)
+        process.exit(1)
+      }
+    } else {
+      console.error(err.message)
+      process.exit(1)
+    }
+  }
+
+  child.on("error", (error) => {
+    if (error.code === "EACCES" && process.platform !== "win32") {
+      try {
+        fs.chmodSync(target, 0o755)
+        const retryChild = childProcess.spawn(target, process.argv.slice(2), { stdio: "inherit" })
+        retryChild.on("error", (err) => {
+          console.error(err.message)
+          process.exit(1)
+        })
+        bindChild(retryChild)
+        return
+      } catch {}
+    }
+    console.error(error.message)
+    process.exit(1)
+  })
+  bindChild(child)
 }
 
 const envPath = process.env.TORVE_BIN_PATH || process.env.OPENCODE_BIN_PATH
