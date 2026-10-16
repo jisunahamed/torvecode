@@ -1,4 +1,5 @@
 import type { IntegrationOAuthMethodRegistration } from "@opencode/plugin/effect/integration"
+import type { SessionRequest } from "@opencode/plugin/effect/session"
 import { define } from "@opencode/plugin/effect/plugin"
 import { Clock, Duration, Effect, Schema, Stream } from "effect"
 import { App } from "../../app.js"
@@ -164,6 +165,15 @@ export const TorvePlugin = define({
         sourceConnection: snapshot.connection,
       })
     })
+
+    // Torve AI controls each model's native output limits on the provider/gateway side;
+    // the CLI should not cap or enforce output tokens.
+    const omitOutputLimit = (evt: SessionRequest) =>
+      Effect.sync(() => {
+        delete evt.options.maxTokens
+      })
+    for (const name of ["context", "compaction", "generate"] as const)
+      yield* ctx.session.hook(name, omitOutputLimit, { providerID })
 
     const refresh = Effect.fn("TorvePlugin.refresh")(function* () {
       snapshot = yield* load().pipe(

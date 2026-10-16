@@ -841,8 +841,8 @@ export const fromRequest = Effect.fn("OpenAIChat.fromRequest")(function* (
     ...(supportsUsageInStreaming ? { stream_options: { include_usage: true } } : {}),
     ...(zaiToolStream && hasActiveTools ? { tool_stream: true } : {}),
     ...(maxTokensField === "max_completion_tokens"
-      ? { max_completion_tokens: generation?.maxTokens }
-      : { max_tokens: generation?.maxTokens }),
+      ? (typeof generation?.maxTokens === "number" ? { max_completion_tokens: generation.maxTokens } : {})
+      : (typeof generation?.maxTokens === "number" ? { max_tokens: generation.maxTokens } : {})),
     temperature: generation?.temperature,
     top_p: generation?.topP,
     frequency_penalty: generation?.frequencyPenalty,
